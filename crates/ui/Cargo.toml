@@ -1,0 +1,31 @@
+[package]
+name = "ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = []
+cjk = []
+inspect = ["sysinfo"]
+
+[dependencies]
+shared = { workspace = true }
+i18n = { workspace = true }
+configs = { workspace = true }
+
+egui = { workspace = true }
+eframe = { workspace = true }
+egui-phosphor = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+snafu = { workspace = true }
+serde = { workspace = true }
+rfd = { workspace = true }
+sysinfo = { workspace = true, optional = true }
+
+[build-dependencies]
+reqwest = { version = "0.13", features = ["blocking"] }
+
+[lints]
+workspace = true

@@ -1,0 +1,31 @@
+[package]
+name = "courier"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "courier"
+path = "src/main.rs"
+
+[features]
+default = []
+cjk = ["ui/cjk"]
+inspect = ["ui/inspect"]
+
+[dependencies]
+shared = { workspace = true }
+i18n = { workspace = true }
+configs = { workspace = true }
+ui = { workspace = true }
+plugin-core = { workspace = true }
+
+eframe = { workspace = true }
+egui = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+snafu = { workspace = true }
+
+[lints]
+workspace = true

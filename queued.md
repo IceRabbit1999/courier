@@ -1,0 +1,2 @@
+- `fn colors()`: maybe we can avoid the clone for `ColorPalette`
+- Add a secret part to store things like api keys in AppConfig 
