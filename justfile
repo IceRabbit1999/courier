@@ -2,4 +2,4 @@ fmt:
     cargo +nightly fmt --all
 
 run:
-    cargo run --bin courier --features inspect
+    cargo +nightly run --bin courier --features inspect
