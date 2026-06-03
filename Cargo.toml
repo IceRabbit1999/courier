@@ -21,9 +21,9 @@ authors = ["IceRabbit"]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }
 
 # UI
-eframe = { version = "0.33", default-features = true }
-egui = { version = "0.33" }
-egui-phosphor = "0.11"
+eframe = { version = "0.34.3", default-features = true }
+egui = { version = "0.34.3" }
+egui-phosphor = "0.12"
 
 # Serialization
 serde = { version = "1", features = ["derive"] }

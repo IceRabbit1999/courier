@@ -189,13 +189,15 @@ impl App {
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
+
         // Drain all completed background task results (non-blocking)
         while let Ok(result) = self.rx.try_recv() {
             self.handle_task_result(result);
         }
 
-        self.theme.apply_to_ctx(ctx);
+        self.theme.apply_to_ctx(&ctx);
 
         let title = self.title();
         if title != self.current_title {
@@ -220,7 +222,7 @@ impl eframe::App for App {
 
         match &mut self.state {
             AppState::Setup(setup) => {
-                egui::CentralPanel::default().show(ctx, |ui| {
+                egui::CentralPanel::default().show_inside(ui, |ui| {
                     setup.show(ui);
                 });
 
@@ -262,17 +264,14 @@ impl eframe::App for App {
             }
 
             AppState::Main(main) => {
-                // Drain toast events from the channel into ToastManager
                 main.toasts.drain(&mut self.toast_rx);
 
-                // Menu bar
-                egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
+                egui::Panel::top("menu_bar").show_inside(ui, |ui| {
                     if let Some(action) = menu_bar::show(ui) {
                         Self::handle_menu_action(main, action);
                     }
                 });
 
-                // Sidebar
                 let target_width = if main.sidebar_collapsed {
                     crate::theme::sidebar::collapsed_width() + crate::theme::spacing::SMALL * 2.0
                 } else {
@@ -281,17 +280,16 @@ impl eframe::App for App {
                 let animated_width = ctx.animate_value_with_time(egui::Id::new("sidebar_width"), target_width, 1.0 / crate::theme::animation::sidebar_speed());
 
                 let sidebar_frame = egui::Frame::NONE.fill(crate::theme::colors().sidebar_bg);
-                egui::SidePanel::left("sidebar")
+                egui::Panel::left("sidebar")
                     .resizable(false)
                     .show_separator_line(false)
-                    .exact_width(animated_width)
+                    .exact_size(animated_width)
                     .frame(sidebar_frame)
-                    .show(ctx, |ui| {
+                    .show_inside(ui, |ui| {
                         sidebar::show(ui, &mut main.route, &mut main.sidebar_collapsed);
                     });
 
-                // Main content
-                egui::CentralPanel::default().show(ctx, |ui| {
+                egui::CentralPanel::default().show_inside(ui, |ui| {
                     let settings_action = match main.route {
                         Route::Dashboard => {
                             main.home.show(ui);
@@ -347,14 +345,14 @@ impl eframe::App for App {
                 });
 
                 // Toasts overlay
-                main.toasts.show(ctx);
+                main.toasts.show(&ctx);
 
                 // Inspect panel (dev only)
                 #[cfg(feature = "inspect")]
-                main.inspect.show(ctx);
+                main.inspect.show(&ctx);
 
                 // Exit modal overlay
-                if let Some(exit_action) = main.exit_modal.ui(ctx) {
+                if let Some(exit_action) = main.exit_modal.ui(&ctx) {
                     match exit_action {
                         exit_modal::ExitAction::Confirm => {
                             if let Err(e) = configs::save() {
