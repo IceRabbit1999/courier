@@ -79,7 +79,7 @@ impl ExitModal {
 
                     let cancel = ui.add(
                         egui::Button::new(egui::RichText::new(i18n::message("button-cancel")).size(font_size::SMALL).color(palette.text))
-                            .stroke(egui::Stroke::new(1.0, palette.border))
+                            .stroke(egui::Stroke::new(1_f32, palette.border))
                             .fill(Color32::TRANSPARENT)
                             .corner_radius(egui::CornerRadius::same(radius::MEDIUM))
                             .min_size(Vec2::new(80.0, 32.0)),

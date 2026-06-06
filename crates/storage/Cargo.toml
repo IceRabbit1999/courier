@@ -1,13 +1,13 @@
 [package]
-name = "plugin-core"
+name = "storage"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
-shared = { workspace = true }
-async-trait = "0.1"
+sqlx = { workspace = true }
 snafu = { workspace = true }
+tracing = { workspace = true }
 
 [lints]
 workspace = true

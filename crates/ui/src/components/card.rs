@@ -10,7 +10,7 @@ pub fn card(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui)) {
 
     egui::Frame::NONE
         .fill(palette.surface)
-        .stroke(egui::Stroke::new(1.0, palette.border))
+        .stroke(egui::Stroke::new(1_f32, palette.border))
         .corner_radius(egui::CornerRadius::same(radius::MEDIUM))
         .inner_margin(spacing::MEDIUM)
         .show(ui, |ui| {
@@ -26,7 +26,7 @@ pub fn match_card(ui: &mut egui::Ui, hero_name: &str, kda: &str, is_victory: boo
 
     egui::Frame::NONE
         .fill(palette.surface)
-        .stroke(egui::Stroke::new(1.0, palette.border))
+        .stroke(egui::Stroke::new(1_f32, palette.border))
         .corner_radius(egui::CornerRadius::same(radius::MEDIUM))
         .inner_margin(spacing::MEDIUM)
         .show(ui, |ui| {
@@ -61,7 +61,7 @@ pub fn player_card(ui: &mut egui::Ui, name: &str, rank: Option<&str>, last_match
 
     egui::Frame::NONE
         .fill(palette.surface)
-        .stroke(egui::Stroke::new(1.0, palette.border))
+        .stroke(egui::Stroke::new(1_f32, palette.border))
         .corner_radius(egui::CornerRadius::same(radius::MEDIUM))
         .inner_margin(spacing::MEDIUM)
         .show(ui, |ui| {
@@ -81,7 +81,7 @@ pub fn hero_card(ui: &mut egui::Ui, name: &str, attribute: &str) {
 
     egui::Frame::NONE
         .fill(palette.surface)
-        .stroke(egui::Stroke::new(1.0, palette.border))
+        .stroke(egui::Stroke::new(1_f32, palette.border))
         .corner_radius(egui::CornerRadius::same(radius::MEDIUM))
         .inner_margin(spacing::MEDIUM)
         .show(ui, |ui| {
@@ -98,7 +98,7 @@ pub fn item_card(ui: &mut egui::Ui, name: &str, cost: Option<u32>) {
 
     egui::Frame::NONE
         .fill(palette.surface)
-        .stroke(egui::Stroke::new(1.0, palette.border))
+        .stroke(egui::Stroke::new(1_f32, palette.border))
         .corner_radius(egui::CornerRadius::same(radius::MEDIUM))
         .inner_margin(spacing::SMALL)
         .show(ui, |ui| {

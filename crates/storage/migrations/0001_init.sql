@@ -1,0 +1,3 @@
+-- Initial migration: establishes the migration runner and an empty schema.
+-- Domain tables (recent matches, friends list, ...) are added in later
+-- migrations once their models and the data-fetching layer land.

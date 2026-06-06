@@ -91,12 +91,14 @@ pub struct App {
     theme: CourierTheme,
     current_title: String,
     bridge: AsyncBridge,
+    runtime: tokio::runtime::Handle,
+    storage: storage::Storage,
     rx: mpsc::UnboundedReceiver<TaskResult>,
     toast_rx: mpsc::UnboundedReceiver<toast::ToastEvent>,
 }
 
 impl App {
-    pub fn new(cc: &eframe::CreationContext<'_>, runtime: tokio::runtime::Handle) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, runtime: tokio::runtime::Handle, storage: storage::Storage) -> Self {
         let mut fonts = egui::FontDefinitions::default();
         egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
 
@@ -134,7 +136,7 @@ impl App {
         let (tx, rx) = mpsc::unbounded_channel::<TaskResult>();
         let (toast_tx, toast_rx) = mpsc::unbounded_channel::<toast::ToastEvent>();
         let toast_sender = toast::ToastSender::new(toast_tx);
-        let bridge = AsyncBridge::new(runtime, tx, cc.egui_ctx.clone(), toast_sender);
+        let bridge = AsyncBridge::new(runtime.clone(), tx, cc.egui_ctx.clone(), toast_sender);
 
         let state = if configs::is_first_launch() {
             AppState::Setup(Box::default())
@@ -147,8 +149,26 @@ impl App {
             theme: CourierTheme::new(theme_mode),
             current_title: String::new(),
             bridge,
+            runtime,
+            storage,
             rx,
             toast_rx,
+        }
+    }
+
+    /// Move the on-disk storage to `new_path`: close the pool so the database
+    /// file is released, migrate the directory contents, then reopen at the new
+    /// location.
+    fn migrate_storage(runtime: &tokio::runtime::Handle, storage: &mut storage::Storage, new_path: PathBuf) {
+        runtime.block_on(storage.close());
+
+        if let Err(e) = configs::migrate_storage_path(new_path) {
+            tracing::error!("Failed to migrate storage data: {e}");
+        }
+
+        match runtime.block_on(storage::Storage::open(configs::storage_path())) {
+            Ok(reopened) => *storage = reopened,
+            Err(e) => tracing::error!("Failed to reopen storage after migration: {e}"),
         }
     }
 
@@ -323,6 +343,9 @@ impl eframe::App for App {
                             };
                             self.theme.set_mode(new_mode);
                         }
+                        Some(screens::setting::SettingsAction::StoragePathChanged(new_path)) => {
+                            Self::migrate_storage(&self.runtime, &mut self.storage, new_path);
+                        }
                         Some(screens::setting::SettingsAction::Reset) => {
                             configs::update(|cfg| {
                                 *cfg = configs::AppConfig::default();
@@ -358,6 +381,7 @@ impl eframe::App for App {
                             if let Err(e) = configs::save() {
                                 tracing::error!("Failed to save config on exit: {e}");
                             }
+                            self.runtime.block_on(self.storage.close());
                             ctx.send_viewport_cmd(ViewportCommand::Close);
                         }
                         exit_modal::ExitAction::Cancel => {

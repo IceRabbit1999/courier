@@ -128,7 +128,7 @@ fn nav_item(ui: &mut egui::Ui, route: Route, active_route: &mut Route) {
     painter.rect_filled(rect, CornerRadius::same(radius::MEDIUM), bg_color);
 
     if is_active {
-        painter.rect_stroke(rect, CornerRadius::same(radius::MEDIUM), Stroke::new(2.0, palette.primary), StrokeKind::Outside);
+        painter.rect_stroke(rect, CornerRadius::same(radius::MEDIUM), Stroke::new(2_f32, palette.primary), StrokeKind::Outside);
     }
 
     let icon_pos = rect.left_center() + Vec2::new(spacing::MEDIUM, 0.0);
@@ -156,7 +156,7 @@ fn nav_item_collapsed(ui: &mut egui::Ui, route: Route, active_route: &mut Route)
         .vertical_centered(|ui| {
             let btn = egui::Button::new(egui::RichText::new(icon).size(sidebar::icon_size()).color(icon_color))
                 .fill(if is_active { palette.sidebar_item_active } else { Color32::TRANSPARENT })
-                .stroke(if is_active { Stroke::new(2.0, palette.primary) } else { Stroke::NONE })
+                .stroke(if is_active { Stroke::new(2_f32, palette.primary) } else { Stroke::NONE })
                 .corner_radius(CornerRadius::same(radius::MEDIUM))
                 .min_size(Vec2::new(44.0, 44.0));
 

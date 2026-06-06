@@ -13,6 +13,7 @@ inspect = ["sysinfo"]
 shared = { workspace = true }
 i18n = { workspace = true }
 configs = { workspace = true }
+storage = { workspace = true }
 
 egui = { workspace = true }
 eframe = { workspace = true }

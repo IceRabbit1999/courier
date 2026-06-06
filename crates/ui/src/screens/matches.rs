@@ -27,7 +27,7 @@ impl MatchScreen {
 
         let btn = egui::Button::new(egui::RichText::new(label).size(font_size::BODY))
             .fill(if is_active { palette.sidebar_item_active } else { egui::Color32::TRANSPARENT })
-            .stroke(if is_active { egui::Stroke::new(2.0, palette.primary) } else { egui::Stroke::NONE })
+            .stroke(if is_active { egui::Stroke::new(2_f32, palette.primary) } else { egui::Stroke::NONE })
             .corner_radius(egui::CornerRadius::same(radius::MEDIUM));
 
         if ui.add(btn).clicked() {

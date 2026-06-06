@@ -16,6 +16,12 @@ pub enum Error {
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(display("storage error"))]
+    Storage {
+        source: storage::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
 }
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
@@ -30,7 +36,9 @@ fn main() -> Result<()> {
     let runtime = tokio::runtime::Runtime::new().expect("failed to create tokio runtime");
     let runtime_handle = runtime.handle().clone();
 
-    run_app(runtime_handle)?;
+    let storage = runtime_handle.block_on(storage::Storage::open(configs::storage_path())).context(StorageSnafu)?;
+
+    run_app(runtime_handle, storage)?;
 
     runtime.shutdown_timeout(Duration::from_secs(5));
 
@@ -46,11 +54,11 @@ fn init_logging() {
         .init();
 }
 
-fn run_app(runtime: tokio::runtime::Handle) -> Result<()> {
+fn run_app(runtime: tokio::runtime::Handle, storage: storage::Storage) -> Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([1200.0, 800.0]).with_min_inner_size([800.0, 600.0]),
         ..Default::default()
     };
 
-    eframe::run_native("Courier", options, Box::new(|cc| Ok(Box::new(App::new(cc, runtime))))).context(EframeSnafu)
+    eframe::run_native("Courier", options, Box::new(|cc| Ok(Box::new(App::new(cc, runtime, storage))))).context(EframeSnafu)
 }

@@ -183,7 +183,7 @@ impl ToastManager {
 
                     egui::Frame::NONE
                         .fill(palette.surface)
-                        .stroke(egui::Stroke::new(1.0, border_color))
+                        .stroke(egui::Stroke::new(1_f32, border_color))
                         .corner_radius(egui::CornerRadius::same(radius::MEDIUM))
                         .inner_margin(spacing::MEDIUM)
                         .show(ui, |ui| {

@@ -5,18 +5,23 @@ use egui::Color32;
 
 use crate::theme::{colors, font_size, radius, spacing};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SettingsAction {
     ThemeChanged(ThemePreference),
+    StoragePathChanged(PathBuf),
     Reset,
 }
 
 pub struct SettingScreen {
     app_path: String,
+    storage_path: String,
     reset_confirming: bool,
 
     dota2_steam_id: String,
-    dota2_opendota_key: String,
+
+    steam_web_api_key: String,
+    stratz_api_token: String,
+    opendota_api_key: String,
 }
 
 impl SettingScreen {
@@ -25,9 +30,12 @@ impl SettingScreen {
         let config = configs::read();
         Self {
             app_path: bootstrap.app_path().display().to_string(),
+            storage_path: bootstrap.storage_path().display().to_string(),
             reset_confirming: false,
             dota2_steam_id: config.games.dota2.steam_id.clone().unwrap_or_default(),
-            dota2_opendota_key: config.games.dota2.opendota_api_key.clone().unwrap_or_default(),
+            steam_web_api_key: config.secrets.steam_web_api_key.clone().unwrap_or_default(),
+            stratz_api_token: config.secrets.stratz_api_token.clone().unwrap_or_default(),
+            opendota_api_key: config.secrets.opendota_api_key.clone().unwrap_or_default(),
         }
     }
 
@@ -43,6 +51,12 @@ impl SettingScreen {
         let bootstrap = configs::bootstrap();
         let current = bootstrap.app_path().display().to_string();
         self.app_path != current
+    }
+
+    fn storage_path_changed(&self) -> bool {
+        let bootstrap = configs::bootstrap();
+        let current = bootstrap.storage_path().display().to_string();
+        self.storage_path != current
     }
 
     pub fn show(&mut self, ui: &mut egui::Ui) -> Option<SettingsAction> {
@@ -94,6 +108,9 @@ impl SettingScreen {
                 }
                 ui.add_space(spacing::MEDIUM);
 
+                self.secrets_section(ui);
+                ui.add_space(spacing::MEDIUM);
+
                 if Self::notifications_section(ui, &mut notification) {
                     changed = true;
                 }
@@ -115,6 +132,9 @@ impl SettingScreen {
                         .corner_radius(egui::CornerRadius::same(radius::MEDIUM));
 
                     if ui.add(save_btn).clicked() {
+                        if self.storage_path_changed() {
+                            action = Some(SettingsAction::StoragePathChanged(PathBuf::from(&self.storage_path)));
+                        }
                         self.save_to_disk();
                     }
 
@@ -165,23 +185,29 @@ impl SettingScreen {
 
         // Sync string fields back to config
         games.dota2.steam_id = if self.dota2_steam_id.is_empty() { None } else { Some(self.dota2_steam_id.clone()) };
-        games.dota2.opendota_api_key = if self.dota2_opendota_key.is_empty() {
-            None
-        } else {
-            Some(self.dota2_opendota_key.clone())
+
+        let secrets = configs::SecretsConfig {
+            steam_web_api_key: Self::optional(&self.steam_web_api_key),
+            stratz_api_token: Self::optional(&self.stratz_api_token),
+            opendota_api_key: Self::optional(&self.opendota_api_key),
         };
 
-        if changed || config.tracking != tracking || config.games != games {
+        if changed || config.tracking != tracking || config.games != games || config.secrets != secrets {
             configs::update(|cfg| {
                 cfg.general = general;
                 cfg.notification = notification;
                 cfg.appearance = appearance;
                 cfg.tracking = tracking;
                 cfg.games = games;
+                cfg.secrets = secrets;
             });
         }
 
         action
+    }
+
+    fn optional(value: &str) -> Option<String> {
+        if value.is_empty() { None } else { Some(value.to_owned()) }
     }
 
     fn save_to_disk(&self) {
@@ -201,7 +227,7 @@ impl SettingScreen {
         let palette = colors();
         egui::Frame::NONE
             .fill(palette.surface)
-            .stroke(egui::Stroke::new(1.0, palette.border))
+            .stroke(egui::Stroke::new(1_f32, palette.border))
             .corner_radius(egui::CornerRadius::same(radius::MEDIUM))
             .inner_margin(spacing::MEDIUM)
             .show(ui, |ui| {
@@ -245,6 +271,69 @@ impl SettingScreen {
                         .color(palette.primary),
                 );
             }
+
+            ui.add_space(spacing::MEDIUM);
+
+            ui.label(egui::RichText::new(i18n::message("settings-storage-path")).size(font_size::BODY).color(palette.text));
+            ui.label(
+                egui::RichText::new(i18n::message("settings-storage-path-description"))
+                    .size(font_size::SMALL)
+                    .color(palette.text_muted),
+            );
+            ui.add_space(spacing::SMALL);
+
+            ui.horizontal(|ui| {
+                ui.add(
+                    egui::TextEdit::singleline(&mut self.storage_path)
+                        .desired_width(ui.available_width() - 100.0)
+                        .font(egui::FontId::proportional(font_size::BODY)),
+                );
+                if ui.button(i18n::message("settings-browse")).clicked()
+                    && let Some(path) = rfd::FileDialog::new().set_title("Choose Storage Directory").pick_folder()
+                {
+                    self.storage_path = path.display().to_string();
+                }
+            });
+
+            if self.storage_path_changed() {
+                ui.add_space(spacing::SMALL);
+                ui.label(
+                    egui::RichText::new(i18n::message("settings-path-will-migrate"))
+                        .size(font_size::SMALL)
+                        .color(palette.primary),
+                );
+            }
+        });
+    }
+
+    fn secrets_section(&mut self, ui: &mut egui::Ui) {
+        let palette = colors();
+        Self::section_frame(ui, |ui| {
+            ui.label(egui::RichText::new(i18n::message("settings-secrets")).size(font_size::LARGE).color(palette.text));
+            ui.label(
+                egui::RichText::new(i18n::message("settings-secrets-description"))
+                    .size(font_size::SMALL)
+                    .color(palette.text_muted),
+            );
+            ui.add_space(spacing::SMALL);
+
+            for (label_key, value) in [
+                ("settings-secrets-steam-web-api-key", &mut self.steam_web_api_key),
+                ("settings-secrets-stratz-api-token", &mut self.stratz_api_token),
+                ("settings-secrets-opendota-api-key", &mut self.opendota_api_key),
+            ] {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(i18n::message(label_key)).size(font_size::BODY).color(palette.text));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.add(
+                            egui::TextEdit::singleline(value)
+                                .desired_width(240.0)
+                                .password(true)
+                                .font(egui::FontId::proportional(font_size::BODY)),
+                        );
+                    });
+                });
+            }
         });
     }
 
@@ -280,7 +369,7 @@ impl SettingScreen {
                         let is_active = general.theme == pref;
                         let btn = egui::Button::new(egui::RichText::new(i18n::message(label_key)).size(font_size::SMALL))
                             .fill(if is_active { palette.sidebar_item_active } else { Color32::TRANSPARENT })
-                            .stroke(if is_active { egui::Stroke::new(2.0, palette.primary) } else { egui::Stroke::NONE })
+                            .stroke(if is_active { egui::Stroke::new(2_f32, palette.primary) } else { egui::Stroke::NONE })
                             .corner_radius(egui::CornerRadius::same(radius::MEDIUM));
 
                         if ui.add(btn).clicked() {
@@ -438,18 +527,6 @@ impl SettingScreen {
                     );
                 });
             });
-
-            ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(i18n::message("settings-dota2-opendota-key")).size(font_size::BODY).color(palette.text));
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.add(
-                        egui::TextEdit::singleline(&mut self.dota2_opendota_key)
-                            .desired_width(200.0)
-                            .password(true)
-                            .font(egui::FontId::proportional(font_size::BODY)),
-                    );
-                });
-            });
         });
         changed
     }
@@ -524,7 +601,7 @@ impl SettingScreen {
                         let is_active = general.update_channel == channel;
                         let btn = egui::Button::new(egui::RichText::new(i18n::message(label_key)).size(font_size::SMALL))
                             .fill(if is_active { palette.sidebar_item_active } else { Color32::TRANSPARENT })
-                            .stroke(if is_active { egui::Stroke::new(2.0, palette.primary) } else { egui::Stroke::NONE })
+                            .stroke(if is_active { egui::Stroke::new(2_f32, palette.primary) } else { egui::Stroke::NONE })
                             .corner_radius(egui::CornerRadius::same(radius::MEDIUM));
 
                         if ui.add(btn).clicked() {
