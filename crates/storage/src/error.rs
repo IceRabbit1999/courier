@@ -24,6 +24,13 @@ pub enum Error {
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(display("Database query failed"))]
+    #[snafu(context(name(QuerySnafu)))]
+    Query {
+        source: sqlx::Error,
+        #[snafu(implicit)]
+        location: Location,
+    },
 }
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;

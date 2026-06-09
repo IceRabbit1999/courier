@@ -200,8 +200,17 @@ pub struct AppConfig {
     pub appearance: AppearanceConfig,
     pub tracking: TrackingConfig,
     pub games: GamesConfig,
+    pub friends: FriendsConfig,
     pub notification: NotificationsConfig,
     pub secrets: SecretsConfig,
+}
+
+/// Watch-list display options.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct FriendsConfig {
+    /// Whether to fetch and render each friend's Steam avatar image. Off by default.
+    pub load_avatars: bool,
 }
 
 /// User-supplied API credentials (BYOK). Courier ships no defaults; every field

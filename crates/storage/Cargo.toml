@@ -5,6 +5,8 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+shared = { workspace = true }
+
 sqlx = { workspace = true }
 snafu = { workspace = true }
 tracing = { workspace = true }

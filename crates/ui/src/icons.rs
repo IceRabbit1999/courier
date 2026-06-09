@@ -12,6 +12,7 @@ pub mod nav {
 pub mod action {
     pub const COLLAPSE: &str = egui_phosphor::regular::CARET_LEFT;
     pub const EXPAND: &str = egui_phosphor::regular::CARET_RIGHT;
+    pub const CARET_DOWN: &str = egui_phosphor::regular::CARET_DOWN;
     pub const CLOSE: &str = egui_phosphor::regular::X;
     pub const SEARCH: &str = egui_phosphor::regular::MAGNIFYING_GLASS;
     pub const ADD: &str = egui_phosphor::regular::PLUS;

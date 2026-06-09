@@ -136,6 +136,9 @@ settings-secrets-stratz-api-token = STRATZ API Token
 settings-secrets-opendota-api-key = OpenDota API Key
 settings-desktop-notifications-enabled = Desktop notifications
 settings-desktop-notifications-sound = Notification sound
+settings-friends = Friends
+settings-friends-load-avatars = Load avatars
+settings-friends-load-avatars-description = Fetch and display each friend's Steam avatar. Disable to save bandwidth.
 
 # Common
 common-loading = Loading...
@@ -202,3 +205,35 @@ feedback-coming-soon = Feedback feature coming soon!
 # Updates (placeholder)
 updates-title = Updates
 updates-check-coming-soon = Update checking coming soon!
+
+# Friends - refresh and status
+friends-sync = Sync list
+friends-refresh-status = Refresh status
+friends-sort = Sort
+friends-sort-status = Status
+friends-sort-game = Current game
+friends-sort-name = Name
+friends-not-in-game = Not in a game
+friends-online = Online
+friends-offline = Offline
+friends-error-title = Could not refresh friends
+friends-error-credentials = Set your Steam ID and Steam Web API key in Settings first.
+friends-status-in-game = In game
+friends-status-offline = Offline
+friends-status-online = Online
+friends-status-busy = Busy
+friends-status-away = Away
+friends-status-snooze = Snooze
+friends-status-looking-to-trade = Looking to trade
+friends-status-looking-to-play = Looking to play
+
+# Settings - game data sync
+settings-game-data = Game Data
+settings-game-data-description = Hero and item reference data used to display match results. Synced for all languages.
+settings-game-data-sync = Sync now
+settings-game-data-syncing = Syncing...
+
+# Game data sync results
+data-sync-done-title = Game data synced
+data-sync-error-title = Game data sync failed
+data-sync-error-credentials = Set your Steam Web API key and Stratz API token in Settings first.

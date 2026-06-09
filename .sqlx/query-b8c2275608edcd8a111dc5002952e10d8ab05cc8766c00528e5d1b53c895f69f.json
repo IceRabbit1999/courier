@@ -1,0 +1,110 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT steam_id AS \"steam_id!\", friend_since, persona_name, avatar, profile_url, persona_state, last_log_off, game_extra_info\n               FROM friends ORDER BY (persona_state != 0) DESC, persona_name COLLATE NOCASE ASC",
+  "describe": {
+    "columns": [
+      {
+        "name": "steam_id!",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "friends",
+            "name": "steam_id"
+          }
+        }
+      },
+      {
+        "name": "friend_since",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "friends",
+            "name": "friend_since"
+          }
+        }
+      },
+      {
+        "name": "persona_name",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "friends",
+            "name": "persona_name"
+          }
+        }
+      },
+      {
+        "name": "avatar",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "friends",
+            "name": "avatar"
+          }
+        }
+      },
+      {
+        "name": "profile_url",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "friends",
+            "name": "profile_url"
+          }
+        }
+      },
+      {
+        "name": "persona_state",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "friends",
+            "name": "persona_state"
+          }
+        }
+      },
+      {
+        "name": "last_log_off",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "friends",
+            "name": "last_log_off"
+          }
+        }
+      },
+      {
+        "name": "game_extra_info",
+        "ordinal": 7,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "friends",
+            "name": "game_extra_info"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "b8c2275608edcd8a111dc5002952e10d8ab05cc8766c00528e5d1b53c895f69f"
+}

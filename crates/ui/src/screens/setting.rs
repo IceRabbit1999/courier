@@ -9,6 +9,7 @@ use crate::theme::{colors, font_size, radius, spacing};
 pub enum SettingsAction {
     ThemeChanged(ThemePreference),
     StoragePathChanged(PathBuf),
+    SyncStaticData,
     Reset,
 }
 
@@ -16,6 +17,7 @@ pub struct SettingScreen {
     app_path: String,
     storage_path: String,
     reset_confirming: bool,
+    syncing: bool,
 
     dota2_steam_id: String,
 
@@ -32,6 +34,7 @@ impl SettingScreen {
             app_path: bootstrap.app_path().display().to_string(),
             storage_path: bootstrap.storage_path().display().to_string(),
             reset_confirming: false,
+            syncing: false,
             dota2_steam_id: config.games.dota2.steam_id.clone().unwrap_or_default(),
             steam_web_api_key: config.secrets.steam_web_api_key.clone().unwrap_or_default(),
             stratz_api_token: config.secrets.stratz_api_token.clone().unwrap_or_default(),
@@ -69,6 +72,7 @@ impl SettingScreen {
         let mut appearance = config.appearance.clone();
         let mut tracking = config.tracking.clone();
         let mut games = config.games.clone();
+        let mut friends = config.friends.clone();
 
         let mut current_language = Self::language_code_to_static(&general.language);
 
@@ -105,6 +109,16 @@ impl SettingScreen {
 
                 if self.games_section(ui, &mut games) {
                     changed = true;
+                }
+                ui.add_space(spacing::MEDIUM);
+
+                if Self::friends_section(ui, &mut friends) {
+                    changed = true;
+                }
+                ui.add_space(spacing::MEDIUM);
+
+                if self.game_data_section(ui) {
+                    action = Some(SettingsAction::SyncStaticData);
                 }
                 ui.add_space(spacing::MEDIUM);
 
@@ -192,18 +206,23 @@ impl SettingScreen {
             opendota_api_key: Self::optional(&self.opendota_api_key),
         };
 
-        if changed || config.tracking != tracking || config.games != games || config.secrets != secrets {
+        if changed || config.tracking != tracking || config.games != games || config.friends != friends || config.secrets != secrets {
             configs::update(|cfg| {
                 cfg.general = general;
                 cfg.notification = notification;
                 cfg.appearance = appearance;
                 cfg.tracking = tracking;
                 cfg.games = games;
+                cfg.friends = friends;
                 cfg.secrets = secrets;
             });
         }
 
         action
+    }
+
+    pub fn set_syncing(&mut self, syncing: bool) {
+        self.syncing = syncing;
     }
 
     fn optional(value: &str) -> Option<String> {
@@ -529,6 +548,66 @@ impl SettingScreen {
             });
         });
         changed
+    }
+
+    fn friends_section(ui: &mut egui::Ui, friends: &mut configs::FriendsConfig) -> bool {
+        let palette = colors();
+        let mut changed = false;
+        Self::section_frame(ui, |ui| {
+            ui.label(egui::RichText::new(i18n::message("settings-friends")).size(font_size::LARGE).color(palette.text));
+            ui.add_space(spacing::SMALL);
+
+            ui.horizontal(|ui| {
+                ui.vertical(|ui| {
+                    ui.label(
+                        egui::RichText::new(i18n::message("settings-friends-load-avatars"))
+                            .size(font_size::BODY)
+                            .color(palette.text),
+                    );
+                    ui.label(
+                        egui::RichText::new(i18n::message("settings-friends-load-avatars-description"))
+                            .size(font_size::SMALL)
+                            .color(palette.text_muted),
+                    );
+                });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui.checkbox(&mut friends.load_avatars, "").changed() {
+                        changed = true;
+                    }
+                });
+            });
+        });
+        changed
+    }
+
+    /// "Game Data" section: a manual trigger to (re)sync the static hero/item
+    /// reference data into the database. Returns `true` when sync is requested.
+    fn game_data_section(&self, ui: &mut egui::Ui) -> bool {
+        let palette = colors();
+        let mut sync_requested = false;
+        Self::section_frame(ui, |ui| {
+            ui.label(egui::RichText::new(i18n::message("settings-game-data")).size(font_size::LARGE).color(palette.text));
+            ui.label(
+                egui::RichText::new(i18n::message("settings-game-data-description"))
+                    .size(font_size::SMALL)
+                    .color(palette.text_muted),
+            );
+            ui.add_space(spacing::SMALL);
+
+            let label = if self.syncing {
+                i18n::message("settings-game-data-syncing")
+            } else {
+                i18n::message("settings-game-data-sync")
+            };
+            let button = egui::Button::new(egui::RichText::new(label).size(font_size::BODY).color(Color32::WHITE))
+                .fill(palette.primary)
+                .corner_radius(egui::CornerRadius::same(radius::MEDIUM));
+
+            if ui.add_enabled(!self.syncing, button).clicked() {
+                sync_requested = true;
+            }
+        });
+        sync_requested
     }
 
     fn notifications_section(ui: &mut egui::Ui, notification: &mut configs::NotificationsConfig) -> bool {
