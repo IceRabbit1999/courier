@@ -93,12 +93,13 @@ pub struct App {
     bridge: AsyncBridge,
     runtime: tokio::runtime::Handle,
     storage: storage::Storage,
+    client: plugin::Client,
     rx: mpsc::UnboundedReceiver<TaskResult>,
     toast_rx: mpsc::UnboundedReceiver<toast::ToastEvent>,
 }
 
 impl App {
-    pub fn new(cc: &eframe::CreationContext<'_>, runtime: tokio::runtime::Handle, storage: storage::Storage) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, runtime: tokio::runtime::Handle, storage: storage::Storage, client: plugin::Client) -> Self {
         let mut fonts = egui::FontDefinitions::default();
         egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
 
@@ -117,6 +118,7 @@ impl App {
         }
 
         cc.egui_ctx.set_fonts(fonts);
+        egui_extras::install_image_loaders(&cc.egui_ctx);
 
         let config = configs::read();
 
@@ -141,6 +143,8 @@ impl App {
         let state = if configs::is_first_launch() {
             AppState::Setup(Box::default())
         } else {
+            // Populate the watch list from the last-synced data without a network call.
+            Self::spawn_load_friends_from_db(&bridge, &storage);
             AppState::Main(Box::new(MainState::new(bridge.clone())))
         };
 
@@ -151,9 +155,107 @@ impl App {
             bridge,
             runtime,
             storage,
+            client,
             rx,
             toast_rx,
         }
+    }
+
+    /// Load the stored friend list off the UI thread (no network).
+    fn spawn_load_friends_from_db(bridge: &AsyncBridge, storage: &storage::Storage) {
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            match storage.list_friends().await {
+                Ok(friends) => TaskResult::FriendsLoaded(friends),
+                Err(e) => TaskResult::FriendsFailed(e.to_string()),
+            }
+        });
+    }
+
+    /// Sync the full friend list from Steam (friend list + player summaries),
+    /// picking up any newly added or removed friends, then store and hand it back.
+    fn spawn_sync_friends(bridge: &AsyncBridge, client: &plugin::Client, storage: &storage::Storage) {
+        let (steam_id, key) = {
+            let config = configs::read();
+            (config.games.dota2.steam_id.clone(), config.secrets.steam_web_api_key.clone())
+        };
+        let (Some(steam_id), Some(key)) = (steam_id, key) else {
+            bridge.toasts().error(i18n::message("friends-error-title"), i18n::message("friends-error-credentials"));
+            return;
+        };
+
+        let client = client.clone();
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            match client.steam(key).get_friends(&steam_id).await {
+                Ok(friends) => match storage.replace_friends(&friends).await {
+                    Ok(()) => TaskResult::FriendsLoaded(friends),
+                    Err(e) => TaskResult::FriendsFailed(e.to_string()),
+                },
+                Err(e) => TaskResult::FriendsFailed(e.to_string()),
+            }
+        });
+    }
+
+    /// Refresh the online state and current game of the already-known `friends`
+    /// (player summaries only; no friend-list fetch), then store and hand it back.
+    fn spawn_refresh_statuses(bridge: &AsyncBridge, client: &plugin::Client, storage: &storage::Storage, friends: Vec<shared::Friend>) {
+        let key = configs::read().secrets.steam_web_api_key.clone();
+        let Some(key) = key else {
+            bridge.toasts().error(i18n::message("friends-error-title"), i18n::message("friends-error-credentials"));
+            return;
+        };
+
+        let client = client.clone();
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            match client.steam(key).refresh_statuses(&friends).await {
+                Ok(friends) => match storage.replace_friends(&friends).await {
+                    Ok(()) => TaskResult::FriendsLoaded(friends),
+                    Err(e) => TaskResult::FriendsFailed(e.to_string()),
+                },
+                Err(e) => TaskResult::FriendsFailed(e.to_string()),
+            }
+        });
+    }
+
+    /// Sync static reference data: heroes from Steam, items from Stratz, for every
+    /// supported locale, then report the stored row counts.
+    fn spawn_sync_static_data(bridge: &AsyncBridge, client: &plugin::Client, storage: &storage::Storage) {
+        let (key, token) = {
+            let config = configs::read();
+            (config.secrets.steam_web_api_key.clone(), config.secrets.stratz_api_token.clone())
+        };
+        let (Some(key), Some(token)) = (key, token) else {
+            bridge.toasts().error(i18n::message("data-sync-error-title"), i18n::message("data-sync-error-credentials"));
+            return;
+        };
+
+        let client = client.clone();
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            for &locale in i18n::SUPPORTED_LOCALES {
+                match client.steam(key.clone()).get_heroes(locale).await {
+                    Ok(heroes) => {
+                        if let Err(e) = storage.upsert_heroes(locale, &heroes).await {
+                            return TaskResult::StaticDataFailed(e.to_string());
+                        }
+                    }
+                    Err(e) => return TaskResult::StaticDataFailed(e.to_string()),
+                }
+                match client.stratz(token.clone()).get_items(locale).await {
+                    Ok(items) => {
+                        if let Err(e) = storage.upsert_items(locale, &items).await {
+                            return TaskResult::StaticDataFailed(e.to_string());
+                        }
+                    }
+                    Err(e) => return TaskResult::StaticDataFailed(e.to_string()),
+                }
+            }
+            let heroes = storage.hero_count().await.unwrap_or_default();
+            let items = storage.item_count().await.unwrap_or_default();
+            TaskResult::StaticDataSynced { heroes, items }
+        });
     }
 
     /// Move the on-disk storage to `new_path`: close the pool so the database
@@ -179,12 +281,27 @@ impl App {
         }
     }
 
-    fn handle_task_result(&mut self, _result: TaskResult) {
-        // Dispatch results to the appropriate screen/state.
-        // match result {
-        //     TaskResult::MatchesLoaded(matches) => { ... }
-        //     TaskResult::MatchesFailed(err) => { ... }
-        // }
+    fn handle_task_result(&mut self, result: TaskResult) {
+        let AppState::Main(main) = &mut self.state else {
+            return;
+        };
+
+        match result {
+            TaskResult::FriendsLoaded(friends) => main.friends.set_friends(friends),
+            TaskResult::FriendsFailed(error) => {
+                main.friends.set_loading(false);
+                main.toasts.push_error(i18n::message("friends-error-title"), error);
+            }
+            TaskResult::StaticDataSynced { heroes, items } => {
+                main.settings.set_syncing(false);
+                let summary = format!("{heroes} {} · {items} {}", i18n::message("nav-heroes"), i18n::message("nav-items"));
+                main.toasts.push_success(i18n::message("data-sync-done-title"), summary);
+            }
+            TaskResult::StaticDataFailed(error) => {
+                main.settings.set_syncing(false);
+                main.toasts.push_error(i18n::message("data-sync-error-title"), error);
+            }
+        }
     }
 
     fn handle_menu_action(main: &mut MainState, action: menu_bar::MenuAction) {
@@ -316,7 +433,18 @@ impl eframe::App for App {
                             None
                         }
                         Route::Friends => {
-                            main.friends.show(ui);
+                            match main.friends.show(ui) {
+                                Some(screens::friend::FriendAction::SyncFriends) => {
+                                    main.friends.set_loading(true);
+                                    Self::spawn_sync_friends(&self.bridge, &self.client, &self.storage);
+                                }
+                                Some(screens::friend::FriendAction::RefreshStatuses) => {
+                                    let friends = main.friends.friends().to_vec();
+                                    main.friends.set_loading(true);
+                                    Self::spawn_refresh_statuses(&self.bridge, &self.client, &self.storage, friends);
+                                }
+                                None => {}
+                            }
                             None
                         }
                         Route::Matches => {
@@ -345,6 +473,10 @@ impl eframe::App for App {
                         }
                         Some(screens::setting::SettingsAction::StoragePathChanged(new_path)) => {
                             Self::migrate_storage(&self.runtime, &mut self.storage, new_path);
+                        }
+                        Some(screens::setting::SettingsAction::SyncStaticData) => {
+                            main.settings.set_syncing(true);
+                            Self::spawn_sync_static_data(&self.bridge, &self.client, &self.storage);
                         }
                         Some(screens::setting::SettingsAction::Reset) => {
                             configs::update(|cfg| {

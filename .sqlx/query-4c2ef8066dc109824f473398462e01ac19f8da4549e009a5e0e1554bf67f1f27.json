@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT synced_at FROM sync_meta WHERE key = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "synced_at",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "sync_meta",
+            "name": "synced_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "4c2ef8066dc109824f473398462e01ac19f8da4549e009a5e0e1554bf67f1f27"
+}

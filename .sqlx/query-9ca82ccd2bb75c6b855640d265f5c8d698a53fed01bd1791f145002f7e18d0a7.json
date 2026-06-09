@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO hero_names (hero_id, locale, display_name) VALUES (?, ?, ?) ON CONFLICT(hero_id, locale) DO UPDATE SET display_name = excluded.display_name",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "9ca82ccd2bb75c6b855640d265f5c8d698a53fed01bd1791f145002f7e18d0a7"
+}

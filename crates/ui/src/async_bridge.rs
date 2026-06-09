@@ -9,11 +9,15 @@ use crate::components::toast::ToastSender;
 /// Each variant represents one completed (or failed) async operation.
 /// Add new variants here as more background tasks are introduced.
 pub enum TaskResult {
-    // Placeholder: real variants will be added when actual async tasks are implemented.
-    // e.g.:
-    // MatchesLoaded(Vec<shared::Match>),
-    // MatchesFailed(String),
-    // PlayerLoaded(shared::PlayerProfile),
+    /// The friend list, loaded from the DB on startup or refreshed from Steam.
+    FriendsLoaded(Vec<shared::Friend>),
+    FriendsFailed(String),
+    /// Static reference data (heroes/items) was synced; carries the row counts.
+    StaticDataSynced {
+        heroes: i64,
+        items: i64,
+    },
+    StaticDataFailed(String),
 }
 
 /// A cloneable handle for spawning async tasks from UI code.

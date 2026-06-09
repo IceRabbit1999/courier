@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO items (id, short_name) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET short_name = excluded.short_name",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "453d51436f55e16c681f1f923a062eb305e19ff73ef95aeb76b6ba8a19095ebc"
+}

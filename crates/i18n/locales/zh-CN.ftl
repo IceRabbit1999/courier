@@ -136,6 +136,9 @@ settings-secrets-stratz-api-token = STRATZ API 令牌
 settings-secrets-opendota-api-key = OpenDota API 密钥
 settings-desktop-notifications-enabled = 桌面通知
 settings-desktop-notifications-sound = 通知声音
+settings-friends = 好友
+settings-friends-load-avatars = 加载头像
+settings-friends-load-avatars-description = 获取并显示每位好友的 Steam 头像。关闭可节省流量。
 
 # 通用
 common-loading = 加载中...
@@ -202,3 +205,35 @@ feedback-coming-soon = 反馈功能即将推出！
 # 更新（占位）
 updates-title = 更新
 updates-check-coming-soon = 更新检查功能即将推出！
+
+# 好友 - 刷新与状态
+friends-sync = 同步列表
+friends-refresh-status = 刷新状态
+friends-sort = 排序
+friends-sort-status = 状态
+friends-sort-game = 当前游戏
+friends-sort-name = 名称
+friends-not-in-game = 未在游戏中
+friends-online = 在线
+friends-offline = 离线
+friends-error-title = 无法刷新好友列表
+friends-error-credentials = 请先在设置中填写 Steam ID 和 Steam Web API 密钥。
+friends-status-in-game = 游戏中
+friends-status-offline = 离线
+friends-status-online = 在线
+friends-status-busy = 忙碌
+friends-status-away = 离开
+friends-status-snooze = 打盹
+friends-status-looking-to-trade = 想要交易
+friends-status-looking-to-play = 想要游戏
+
+# 设置 - 游戏数据同步
+settings-game-data = 游戏数据
+settings-game-data-description = 用于展示比赛结果的英雄和物品数据。将同步所有语言。
+settings-game-data-sync = 立即同步
+settings-game-data-syncing = 同步中...
+
+# 游戏数据同步结果
+data-sync-done-title = 游戏数据已同步
+data-sync-error-title = 游戏数据同步失败
+data-sync-error-credentials = 请先在设置中填写 Steam Web API 密钥和 Stratz API 令牌。

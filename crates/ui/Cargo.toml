@@ -14,10 +14,13 @@ shared = { workspace = true }
 i18n = { workspace = true }
 configs = { workspace = true }
 storage = { workspace = true }
+plugin = { workspace = true }
 
 egui = { workspace = true }
 eframe = { workspace = true }
 egui-phosphor = { workspace = true }
+egui_extras = { workspace = true }
+image = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 snafu = { workspace = true }
@@ -26,7 +29,7 @@ rfd = { workspace = true }
 sysinfo = { workspace = true, optional = true }
 
 [build-dependencies]
-reqwest = { version = "0.13", features = ["blocking"] }
+reqwest = { workspace = true }
 
 [lints]
 workspace = true
