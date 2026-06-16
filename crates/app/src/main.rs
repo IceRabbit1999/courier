@@ -43,7 +43,8 @@ fn main() -> Result<()> {
     let runtime_handle = runtime.handle().clone();
 
     let storage = runtime_handle.block_on(storage::Storage::open(configs::storage_path())).context(StorageSnafu)?;
-    let client = plugin::Client::new(None).context(PluginSnafu)?;
+    let proxy = configs::read().network.proxy.clone();
+    let client = plugin::Client::new(proxy.as_deref()).context(PluginSnafu)?;
 
     run_app(runtime_handle, storage, client)?;
 

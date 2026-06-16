@@ -82,6 +82,8 @@ items-empty = 未找到物品
 
 # 设置
 settings-title = 设置
+settings-search-placeholder = 搜索设置...
+settings-search-no-results = 没有匹配的设置项
 settings-storage = 存储
 settings-app-path = 数据位置
 settings-app-path-description = Courier 存储配置、数据和缓存的位置
@@ -129,6 +131,10 @@ settings-reset-confirm-message = 这将把所有设置恢复为默认值。此�
 settings-dota2 = Dota 2
 settings-dota2-enabled = 已启用
 settings-dota2-steam-id = Steam ID
+settings-network = 网络
+settings-network-proxy = 代理
+settings-network-proxy-description = 所有请求都通过此代理。留空则直接连接。
+settings-network-proxy-placeholder = http://127.0.0.1:7890
 settings-secrets = API 密钥
 settings-secrets-description = 自带密钥。Courier 不提供任何默认值，且仅在本机存储这些密钥。
 settings-secrets-steam-web-api-key = Steam Web API 密钥
@@ -237,3 +243,8 @@ settings-game-data-syncing = 同步中...
 data-sync-done-title = 游戏数据已同步
 data-sync-error-title = 游戏数据同步失败
 data-sync-error-credentials = 请先在设置中填写 Steam Web API 密钥和 Stratz API 令牌。
+
+# 网络 / 代理
+network-proxy-updated-title = 代理已更新
+network-proxy-updated-message = 连接设置已应用。
+network-proxy-error-title = 代理无效

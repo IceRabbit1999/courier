@@ -201,8 +201,17 @@ pub struct AppConfig {
     pub tracking: TrackingConfig,
     pub games: GamesConfig,
     pub friends: FriendsConfig,
+    pub network: NetworkConfig,
     pub notification: NotificationsConfig,
     pub secrets: SecretsConfig,
+}
+
+/// Network options. `proxy` is an optional proxy URL (e.g. `http://127.0.0.1:7890`)
+/// applied to every outbound request; `None` means a direct connection.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct NetworkConfig {
+    pub proxy: Option<String>,
 }
 
 /// Watch-list display options.
