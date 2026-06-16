@@ -6,3 +6,4 @@ pub mod menu_bar;
 pub mod search;
 pub mod sidebar;
 pub mod toast;
+pub mod widgets;

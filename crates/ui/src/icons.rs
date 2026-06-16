@@ -18,6 +18,7 @@ pub mod action {
     pub const ADD: &str = egui_phosphor::regular::PLUS;
     pub const REMOVE: &str = egui_phosphor::regular::MINUS;
     pub const REFRESH: &str = egui_phosphor::regular::ARROW_COUNTER_CLOCKWISE;
+    pub const SYNC: &str = egui_phosphor::regular::ARROWS_CLOCKWISE;
     pub const MENU: &str = egui_phosphor::regular::LIST;
     pub const MORE: &str = egui_phosphor::regular::DOTS_THREE;
     pub const CHECK: &str = egui_phosphor::regular::CHECK;
@@ -34,6 +35,7 @@ pub mod status {
     pub const DEFEAT: &str = egui_phosphor::regular::X;
     pub const ONLINE: &str = egui_phosphor::regular::CIRCLE;
     pub const OFFLINE: &str = egui_phosphor::regular::CIRCLE_DASHED;
+    pub const IN_GAME: &str = egui_phosphor::regular::GAME_CONTROLLER;
 }
 
 pub mod game {

@@ -94,6 +94,7 @@ pub struct App {
     runtime: tokio::runtime::Handle,
     storage: storage::Storage,
     client: plugin::Client,
+    client_proxy: Option<String>,
     rx: mpsc::UnboundedReceiver<TaskResult>,
     toast_rx: mpsc::UnboundedReceiver<toast::ToastEvent>,
 }
@@ -119,6 +120,10 @@ impl App {
 
         cc.egui_ctx.set_fonts(fonts);
         egui_extras::install_image_loaders(&cc.egui_ctx);
+
+        let mut style = (*cc.egui_ctx.global_style()).clone();
+        style.spacing.button_padding = egui::vec2(12.0, 6.0);
+        cc.egui_ctx.set_global_style(style);
 
         let config = configs::read();
 
@@ -148,6 +153,8 @@ impl App {
             AppState::Main(Box::new(MainState::new(bridge.clone())))
         };
 
+        let client_proxy = config.network.proxy.clone();
+
         Self {
             state,
             theme: CourierTheme::new(theme_mode),
@@ -156,6 +163,7 @@ impl App {
             runtime,
             storage,
             client,
+            client_proxy,
             rx,
             toast_rx,
         }
@@ -271,6 +279,23 @@ impl App {
         match runtime.block_on(storage::Storage::open(configs::storage_path())) {
             Ok(reopened) => *storage = reopened,
             Err(e) => tracing::error!("Failed to reopen storage after migration: {e}"),
+        }
+    }
+
+    /// Rebuild the HTTP client when the proxy setting changes so the new proxy
+    /// takes effect without restarting the app. No-ops when the proxy is
+    /// unchanged; on an invalid proxy the existing client is kept.
+    fn reload_client(client: &mut plugin::Client, current_proxy: &mut Option<String>, proxy: Option<String>, toasts: &mut toast::ToastManager) {
+        if *current_proxy == proxy {
+            return;
+        }
+        match plugin::Client::new(proxy.as_deref()) {
+            Ok(new_client) => {
+                *client = new_client;
+                *current_proxy = proxy;
+                toasts.push_success(i18n::message("network-proxy-updated-title"), i18n::message("network-proxy-updated-message"));
+            }
+            Err(e) => toasts.push_error(i18n::message("network-proxy-error-title"), e.to_string()),
         }
     }
 
@@ -427,10 +452,10 @@ impl eframe::App for App {
                     });
 
                 egui::CentralPanel::default().show_inside(ui, |ui| {
-                    let settings_action = match main.route {
+                    let settings_actions = match main.route {
                         Route::Dashboard => {
                             main.home.show(ui);
-                            None
+                            Vec::new()
                         }
                         Route::Friends => {
                             match main.friends.show(ui) {
@@ -445,57 +470,62 @@ impl eframe::App for App {
                                 }
                                 None => {}
                             }
-                            None
+                            Vec::new()
                         }
                         Route::Matches => {
                             main.matches.show(ui);
-                            None
+                            Vec::new()
                         }
                         Route::Heroes => {
                             main.heroes.show(ui);
-                            None
+                            Vec::new()
                         }
                         Route::Items => {
                             main.items.show(ui);
-                            None
+                            Vec::new()
                         }
                         Route::Settings => main.settings.show(ui),
                     };
 
-                    match settings_action {
-                        Some(screens::setting::SettingsAction::ThemeChanged(pref)) => {
-                            let new_mode = match pref {
-                                configs::ThemePreference::Light => ThemeMode::Light,
-                                configs::ThemePreference::Dark => ThemeMode::Dark,
-                                configs::ThemePreference::System => ThemeMode::Dark,
-                            };
-                            self.theme.set_mode(new_mode);
-                        }
-                        Some(screens::setting::SettingsAction::StoragePathChanged(new_path)) => {
-                            Self::migrate_storage(&self.runtime, &mut self.storage, new_path);
-                        }
-                        Some(screens::setting::SettingsAction::SyncStaticData) => {
-                            main.settings.set_syncing(true);
-                            Self::spawn_sync_static_data(&self.bridge, &self.client, &self.storage);
-                        }
-                        Some(screens::setting::SettingsAction::Reset) => {
-                            configs::update(|cfg| {
-                                *cfg = configs::AppConfig::default();
-                            });
-                            if let Err(e) = configs::save() {
-                                tracing::error!("Failed to save config after reset: {e}");
+                    for action in settings_actions {
+                        match action {
+                            screens::setting::SettingsAction::ThemeChanged(pref) => {
+                                let new_mode = match pref {
+                                    configs::ThemePreference::Light => ThemeMode::Light,
+                                    configs::ThemePreference::Dark => ThemeMode::Dark,
+                                    configs::ThemePreference::System => ThemeMode::Dark,
+                                };
+                                self.theme.set_mode(new_mode);
                             }
-                            let default_theme = configs::AppConfig::default().general.theme;
-                            let new_mode = match default_theme {
-                                configs::ThemePreference::Light => ThemeMode::Light,
-                                configs::ThemePreference::Dark => ThemeMode::Dark,
-                                configs::ThemePreference::System => ThemeMode::Dark,
-                            };
-                            self.theme.set_mode(new_mode);
-                            // Rebuild the settings screen to pick up default values
-                            main.settings = screens::setting::SettingScreen::new();
+                            screens::setting::SettingsAction::StoragePathChanged(new_path) => {
+                                Self::migrate_storage(&self.runtime, &mut self.storage, new_path);
+                            }
+                            screens::setting::SettingsAction::ProxyChanged(proxy) => {
+                                Self::reload_client(&mut self.client, &mut self.client_proxy, proxy, &mut main.toasts);
+                            }
+                            screens::setting::SettingsAction::SyncStaticData => {
+                                main.settings.set_syncing(true);
+                                Self::spawn_sync_static_data(&self.bridge, &self.client, &self.storage);
+                            }
+                            screens::setting::SettingsAction::Reset => {
+                                configs::update(|cfg| {
+                                    *cfg = configs::AppConfig::default();
+                                });
+                                if let Err(e) = configs::save() {
+                                    tracing::error!("Failed to save config after reset: {e}");
+                                }
+                                let default_theme = configs::AppConfig::default().general.theme;
+                                let new_mode = match default_theme {
+                                    configs::ThemePreference::Light => ThemeMode::Light,
+                                    configs::ThemePreference::Dark => ThemeMode::Dark,
+                                    configs::ThemePreference::System => ThemeMode::Dark,
+                                };
+                                self.theme.set_mode(new_mode);
+                                Self::reload_client(&mut self.client, &mut self.client_proxy, None, &mut main.toasts);
+                                // Rebuild the settings screen to pick up default values
+                                main.settings = screens::setting::SettingScreen::new();
+                            }
                         }
-                        None => {}
                     }
                 });
 

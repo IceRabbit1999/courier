@@ -1,7 +1,9 @@
+use egui::vec2;
+
 use super::Screen;
 use crate::{
-    components::{card, search},
-    theme::{colors, font_size, spacing},
+    components::{card, search, widgets},
+    theme::spacing,
 };
 
 pub struct ItemScreen {
@@ -16,42 +18,34 @@ impl ItemScreen {
 
 impl Screen for ItemScreen {
     fn show(&mut self, ui: &mut egui::Ui) {
-        let palette = colors();
+        widgets::page(ui, |ui| {
+            widgets::screen_header(ui, &i18n::message("items-title"), |_ui| {});
+            ui.add_space(spacing::MEDIUM);
 
-        egui::ScrollArea::vertical().show(ui, |ui| {
-            ui.set_min_width(ui.available_width());
+            search::search_input(ui, &i18n::message("items-search-placeholder"), &mut self.search_query);
 
-            ui.vertical(|ui| {
-                ui.add_space(spacing::XLARGE);
+            ui.add_space(spacing::LARGE);
 
-                ui.label(egui::RichText::new(i18n::message("items-title")).size(font_size::TITLE).color(palette.text));
-                ui.add_space(spacing::MEDIUM);
-                search::search_input(ui, &i18n::message("items-search-placeholder"), &mut self.search_query);
+            let items = [
+                ("Tango", Some(90)),
+                ("Clarity", Some(50)),
+                ("Salve", Some(100)),
+                ("Faerie Fire", Some(70)),
+                ("Ward", Some(50)),
+                ("Dust", Some(80)),
+                ("Power Treads", Some(1400)),
+                ("Blink Dagger", Some(2250)),
+                ("Black King Bar", Some(4050)),
+                ("Butterfly", Some(4975)),
+                ("Divine Rapier", Some(5950)),
+                ("Refresher", Some(5000)),
+            ];
 
-                ui.add_space(spacing::LARGE);
-
-                // Items row 1
-                ui.horizontal(|ui| {
-                    card::item_card(ui, "Tango", Some(90));
-                    card::item_card(ui, "Clarity", Some(50));
-                    card::item_card(ui, "Salve", Some(100));
-                    card::item_card(ui, "Faerie Fire", Some(70));
-                    card::item_card(ui, "Ward", Some(50));
-                    card::item_card(ui, "Dust", Some(80));
-                });
-                ui.add_space(spacing::SMALL);
-
-                // Items row 2
-                ui.horizontal(|ui| {
-                    card::item_card(ui, "Power Treads", Some(1400));
-                    card::item_card(ui, "Blink Dagger", Some(2250));
-                    card::item_card(ui, "Black King Bar", Some(4050));
-                    card::item_card(ui, "Butterfly", Some(4975));
-                    card::item_card(ui, "Divine Rapier", Some(5950));
-                    card::item_card(ui, "Refresher", Some(5000));
-                });
-
-                ui.add_space(spacing::XLARGE);
+            ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing = vec2(spacing::SMALL, spacing::SMALL);
+                for (name, cost) in items {
+                    card::item_card(ui, name, cost);
+                }
             });
         });
     }

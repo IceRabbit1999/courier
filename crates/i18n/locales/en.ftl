@@ -82,6 +82,8 @@ items-empty = No items found
 
 # Settings
 settings-title = Settings
+settings-search-placeholder = Search settings...
+settings-search-no-results = No settings match your search
 settings-storage = Storage
 settings-app-path = Data location
 settings-app-path-description = Where Courier stores its configuration, data, and cache
@@ -129,6 +131,10 @@ settings-reset-confirm-message = This will reset all settings to their default v
 settings-dota2 = Dota 2
 settings-dota2-enabled = Enabled
 settings-dota2-steam-id = Steam ID
+settings-network = Network
+settings-network-proxy = Proxy
+settings-network-proxy-description = Route all requests through this proxy. Leave empty for a direct connection.
+settings-network-proxy-placeholder = http://127.0.0.1:7890
 settings-secrets = API Keys
 settings-secrets-description = Bring your own keys. Courier ships no defaults and stores these only on this device.
 settings-secrets-steam-web-api-key = Steam Web API Key
@@ -237,3 +243,8 @@ settings-game-data-syncing = Syncing...
 data-sync-done-title = Game data synced
 data-sync-error-title = Game data sync failed
 data-sync-error-credentials = Set your Steam Web API key and Stratz API token in Settings first.
+
+# Network / proxy
+network-proxy-updated-title = Proxy updated
+network-proxy-updated-message = Connection settings applied.
+network-proxy-error-title = Invalid proxy

@@ -125,7 +125,7 @@ impl SetupScreen {
                 }
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let continue_btn = egui::Button::new(egui::RichText::new(i18n::message("setup-confirm")).size(font_size::BODY).color(Color32::WHITE))
+                    let continue_btn = egui::Button::new(egui::RichText::new(i18n::message("setup-confirm")).size(font_size::BODY).color(palette.on_primary))
                         .fill(palette.primary)
                         .corner_radius(egui::CornerRadius::same(radius::MEDIUM));
 
