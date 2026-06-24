@@ -215,11 +215,22 @@ pub struct NetworkConfig {
 }
 
 /// Watch-list display options.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct FriendsConfig {
     /// Whether to fetch and render each friend's Steam avatar image. Off by default.
     pub load_avatars: bool,
+    /// How many recently played games to show per friend in the watch list.
+    pub recent_games_limit: usize,
+}
+
+impl Default for FriendsConfig {
+    fn default() -> Self {
+        Self {
+            load_avatars: false,
+            recent_games_limit: 5,
+        }
+    }
 }
 
 /// User-supplied API credentials (BYOK). Courier ships no defaults; every field

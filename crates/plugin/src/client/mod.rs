@@ -7,7 +7,7 @@ use serde::de::DeserializeOwned;
 use snafu::{OptionExt, ResultExt};
 pub use steam::Steam;
 pub use stratz::Stratz;
-use tracing::error;
+use tracing::{error, info};
 
 use crate::error::{BuildClientSnafu, DeserializeSnafu, EmptyDataSnafu, GraphQlSnafu, RequestSnafu};
 
@@ -52,11 +52,13 @@ impl Client {
     where
         E: Endpoint,
     {
-        let mut request = self.internal.request(endpoint.method(), endpoint.url()).query(&endpoint.query());
+        let url = endpoint.url();
+        let mut request = self.internal.request(endpoint.method(), &url).query(&endpoint.query());
         if let Some(body) = endpoint.body() {
             request = request.json(&body);
         }
 
+        info!("Requesting to: {}", url);
         let response = request.send().await.context(RequestSnafu)?;
         let text = response.text().await.context(RequestSnafu)?;
 

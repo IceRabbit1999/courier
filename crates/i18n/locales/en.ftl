@@ -145,6 +145,8 @@ settings-desktop-notifications-sound = Notification sound
 settings-friends = Friends
 settings-friends-load-avatars = Load avatars
 settings-friends-load-avatars-description = Fetch and display each friend's Steam avatar. Disable to save bandwidth.
+settings-friends-recent-games-limit = Recent games shown
+settings-friends-recent-games-limit-description = How many recently played games to list per friend in the watch list.
 
 # Common
 common-loading = Loading...
@@ -232,6 +234,9 @@ friends-status-away = Away
 friends-status-snooze = Snooze
 friends-status-looking-to-trade = Looking to trade
 friends-status-looking-to-play = Looking to play
+friends-recent-games = Recently played
+friends-playtime-2weeks = 2 weeks
+friends-playtime-total = Total
 
 # Settings - game data sync
 settings-game-data = Game Data

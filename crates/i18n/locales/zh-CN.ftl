@@ -145,6 +145,8 @@ settings-desktop-notifications-sound = 通知声音
 settings-friends = 好友
 settings-friends-load-avatars = 加载头像
 settings-friends-load-avatars-description = 获取并显示每位好友的 Steam 头像。关闭可节省流量。
+settings-friends-recent-games-limit = 显示的最近游戏数
+settings-friends-recent-games-limit-description = 在关注列表中为每位好友列出多少个最近游玩的游戏。
 
 # 通用
 common-loading = 加载中...
@@ -232,6 +234,9 @@ friends-status-away = 离开
 friends-status-snooze = 打盹
 friends-status-looking-to-trade = 想要交易
 friends-status-looking-to-play = 想要游戏
+friends-recent-games = 最近游玩
+friends-playtime-2weeks = 两周
+friends-playtime-total = 总计
 
 # 设置 - 游戏数据同步
 settings-game-data = 游戏数据

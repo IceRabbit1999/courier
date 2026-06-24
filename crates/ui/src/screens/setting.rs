@@ -51,7 +51,7 @@ const GAMES: Section = Section {
     keys: &["settings-games", "settings-dota2", "settings-dota2-enabled", "settings-dota2-steam-id"],
 };
 const FRIENDS: Section = Section {
-    keys: &["settings-friends", "settings-friends-load-avatars"],
+    keys: &["settings-friends", "settings-friends-load-avatars", "settings-friends-recent-games-limit"],
 };
 const GAME_DATA: Section = Section { keys: &["settings-game-data"] };
 const NETWORK: Section = Section {
@@ -725,6 +725,30 @@ impl SettingScreen {
                 });
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if widgets::toggle(ui, &mut friends.load_avatars).changed() {
+                        changed = true;
+                    }
+                });
+            });
+
+            ui.add_space(spacing::SMALL);
+
+            ui.horizontal(|ui| {
+                ui.vertical(|ui| {
+                    ui.label(
+                        egui::RichText::new(i18n::message("settings-friends-recent-games-limit"))
+                            .size(font_size::BODY)
+                            .color(palette.text),
+                    );
+                    ui.label(
+                        egui::RichText::new(i18n::message("settings-friends-recent-games-limit-description"))
+                            .size(font_size::SMALL)
+                            .color(palette.text_muted),
+                    );
+                });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let mut limit = friends.recent_games_limit as f32;
+                    if ui.add(egui::Slider::new(&mut limit, 1.0..=10.0).integer()).changed() {
+                        friends.recent_games_limit = limit as usize;
                         changed = true;
                     }
                 });
