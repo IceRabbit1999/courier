@@ -15,10 +15,11 @@ serde_json = { workspace = true }
 graphql_client = { workspace = true }
 snafu = { workspace = true }
 tracing = { workspace = true }
+futures = { workspace = true }
 
 [dev-dependencies]
 dotenvy = "0.15"
-test-log = {version = "0.2", default-features = false, features = ["trace"]}
+test-log = { version = "0.2", default-features = false, features = ["trace"] }
 tokio = { workspace = true }
 
 [lints]

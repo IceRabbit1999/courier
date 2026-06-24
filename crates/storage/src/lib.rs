@@ -1,14 +1,15 @@
 #![feature(error_generic_member_access)]
 
 use std::{
+    collections::HashMap,
     path::Path,
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use shared::{Friend, HeroEntry, ItemEntry, PersonaState};
+use shared::{Friend, HeroEntry, ItemEntry, PersonaState, RecentGame};
 use snafu::ResultExt;
 use sqlx::{
-    SqlitePool,
+    Row, SqlitePool,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
 };
 use tracing::info;
@@ -128,6 +129,7 @@ impl Storage {
         let now = unix_now();
         let mut tx = self.pool.begin().await.context(QuerySnafu)?;
         sqlx::query!("DELETE FROM friends").execute(&mut *tx).await.context(QuerySnafu)?;
+        sqlx::query!("DELETE FROM friend_recent_games").execute(&mut *tx).await.context(QuerySnafu)?;
         for friend in friends {
             sqlx::query!(
                 "INSERT INTO friends (steam_id, friend_since, persona_name, avatar, profile_url, persona_state, last_log_off, game_extra_info, updated_at) \
@@ -145,9 +147,50 @@ impl Storage {
             .execute(&mut *tx)
             .await
             .context(QuerySnafu)?;
+
+            for game in &friend.recent_games {
+                sqlx::query(
+                    "INSERT INTO friend_recent_games (steam_id, app_id, name, playtime_2weeks, playtime_forever, img_icon_url) \
+                     VALUES (?, ?, ?, ?, ?, ?)",
+                )
+                .bind(&friend.steam_id)
+                .bind(game.app_id)
+                .bind(&game.name)
+                .bind(game.playtime_2weeks)
+                .bind(game.playtime_forever)
+                .bind(&game.img_icon_url)
+                .execute(&mut *tx)
+                .await
+                .context(QuerySnafu)?;
+            }
         }
         tx.commit().await.context(QuerySnafu)?;
         self.mark_synced("friends").await
+    }
+
+    /// Recently played games for every friend, keyed by steam id and ordered by
+    /// two-week playtime (longest first).
+    async fn recent_games_by_friend(&self) -> Result<HashMap<String, Vec<RecentGame>>> {
+        let rows = sqlx::query(
+            "SELECT steam_id, app_id, name, playtime_2weeks, playtime_forever, img_icon_url \
+             FROM friend_recent_games ORDER BY playtime_2weeks DESC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .context(QuerySnafu)?;
+
+        let mut by_friend: HashMap<String, Vec<RecentGame>> = HashMap::new();
+        for row in rows {
+            let steam_id = row.try_get::<String, _>("steam_id").context(QuerySnafu)?;
+            by_friend.entry(steam_id).or_default().push(RecentGame {
+                app_id: row.try_get("app_id").context(QuerySnafu)?,
+                name: row.try_get("name").context(QuerySnafu)?,
+                playtime_2weeks: row.try_get("playtime_2weeks").context(QuerySnafu)?,
+                playtime_forever: row.try_get("playtime_forever").context(QuerySnafu)?,
+                img_icon_url: row.try_get("img_icon_url").context(QuerySnafu)?,
+            });
+        }
+        Ok(by_friend)
     }
 
     /// The stored friend list, online friends first then alphabetical.
@@ -160,9 +203,12 @@ impl Storage {
         .await
         .context(QuerySnafu)?;
 
+        let mut recent_games = self.recent_games_by_friend().await?;
+
         Ok(rows
             .into_iter()
             .map(|row| Friend {
+                recent_games: recent_games.remove(&row.steam_id).unwrap_or_default(),
                 steam_id: row.steam_id,
                 friend_since: row.friend_since,
                 persona_name: row.persona_name,

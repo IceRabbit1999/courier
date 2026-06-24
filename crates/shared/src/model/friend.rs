@@ -10,6 +10,9 @@ pub struct Friend {
     pub persona_state: PersonaState,
     pub last_log_off: Option<i64>,
     pub game_extra_info: Option<String>,
+    /// The friend's recently played games (Steam `GetRecentlyPlayedGames`). Only
+    /// populated for online friends during a status refresh; empty otherwise.
+    pub recent_games: Vec<RecentGame>,
 }
 
 impl Friend {
@@ -17,6 +20,18 @@ impl Friend {
     pub fn in_game(&self) -> bool {
         self.game_extra_info.is_some()
     }
+}
+
+/// One entry from Steam `IPlayerService/GetRecentlyPlayedGames`. Playtimes are in
+/// minutes; `playtime_2weeks` covers the trailing two weeks, `playtime_forever`
+/// the account's lifetime.
+#[derive(Debug, Clone)]
+pub struct RecentGame {
+    pub app_id: i64,
+    pub name: String,
+    pub playtime_2weeks: i64,
+    pub playtime_forever: i64,
+    pub img_icon_url: String,
 }
 
 /// Steam `personastate`. See <https://developer.valvesoftware.com/wiki/Steam_Web_API#GetPlayerSummaries_(v0002)>.

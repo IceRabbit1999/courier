@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 use shared::{HeroEntry, PersonaState};
+use tracing::warn;
 
 use crate::client::{Client, Endpoint};
 
@@ -98,10 +99,52 @@ impl Steam<'_> {
             return Ok(Vec::new());
         }
 
-        let friend_since: HashMap<&str, i64> = friends.iter().map(|f| (f.steam_id.as_str(), f.friend_since)).collect();
+        let friend_since = friends.iter().map(|f| (f.steam_id.as_str(), f.friend_since)).collect::<HashMap<&str, i64>>();
         let ids = friends.iter().map(|f| f.steam_id.as_str()).collect::<Vec<_>>();
         let summaries = self.summaries_for(&ids).await?;
-        Ok(merge_summaries(&friend_since, summaries))
+        let mut merged = merge_summaries(&friend_since, summaries);
+
+        // Recently played games are only worth fetching for friends who are online
+        // (one request each); offline friends keep an empty list. A single failed
+        // fetch is logged and skipped rather than failing the whole refresh.
+        for friend in merged.iter_mut().filter(|f| f.persona_state.is_online()) {
+            let Ok(games) = self
+                .get_recent_games(&friend.steam_id)
+                .await
+                .inspect_err(|e| warn!(steanid=%friend.steam_id, "Failed to fetch recent games: {e:?}"))
+            else {
+                continue;
+            };
+            friend.recent_games = games;
+        }
+        Ok(merged)
+    }
+
+    /// `IPlayerService/GetRecentlyPlayedGames` — the games a single profile has
+    /// played in the trailing two weeks. Returns an empty list for private
+    /// profiles (the endpoint omits `games` rather than erroring).
+    ///
+    /// `GET 'https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v0001/?key=<KEY>&steamid=<ID>'`
+    pub async fn get_recent_games(&self, steamid: &str) -> crate::Result<Vec<shared::RecentGame>> {
+        let response = self
+            .client
+            .execute(GetRecentPlayedGameList {
+                key: self.key.clone(),
+                steamid: steamid.to_owned(),
+            })
+            .await?;
+        Ok(response
+            .response
+            .games
+            .into_iter()
+            .map(|game| shared::RecentGame {
+                app_id: game.appid,
+                name: game.name,
+                playtime_2weeks: game.playtime_2weeks,
+                playtime_forever: game.playtime_forever,
+                img_icon_url: game.img_icon_url,
+            })
+            .collect())
     }
 
     /// Fetch player summaries for `ids` in chunks of 100 (the endpoint's per-call limit).
@@ -149,6 +192,7 @@ fn merge_summaries(friend_since: &HashMap<&str, i64>, summaries: Vec<PlayerSumma
             profile_url: summary.profile_url,
             last_log_off: summary.last_log_off,
             game_extra_info: summary.game_extra_info,
+            recent_games: Vec::new(),
         })
         .collect()
 }
@@ -276,6 +320,46 @@ impl Endpoint for GetHeroList {
     fn query(&self) -> Vec<(&'static str, String)> {
         vec![("key", self.key.clone()), ("language", self.language.clone())]
     }
+}
+
+struct GetRecentPlayedGameList {
+    key: String,
+    steamid: String,
+}
+
+impl Endpoint for GetRecentPlayedGameList {
+    type Response = RecentlyPlayedGamesResponse;
+
+    fn url(&self) -> String {
+        format!("{BASE_URL}/IPlayerService/GetRecentlyPlayedGames/v0001/")
+    }
+
+    fn query(&self) -> Vec<(&'static str, String)> {
+        vec![("key", self.key.clone()), ("steamid", self.steamid.clone()), ("format", "json".to_owned())]
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct RecentlyPlayedGamesResponse {
+    response: RecentlyPlayedGames,
+}
+
+/// A private profile yields `{ "response": {} }` (no `games`), so every field
+/// defaults.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default)]
+struct RecentlyPlayedGames {
+    games: Vec<RecentGame>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RecentGame {
+    appid: i64,
+    name: String,
+    playtime_2weeks: i64,
+    playtime_forever: i64,
+    #[serde(default)]
+    img_icon_url: String,
 }
 
 #[cfg(test)]

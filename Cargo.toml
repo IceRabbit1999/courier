@@ -1,12 +1,12 @@
 [workspace]
 members = [
-    "crates/app",
-    "crates/shared",
-    "crates/i18n",
-    "crates/configs",
-    "crates/ui",
-    "crates/storage",
-    "crates/plugin"
+  "crates/app",
+  "crates/shared",
+  "crates/i18n",
+  "crates/configs",
+  "crates/ui",
+  "crates/storage",
+  "crates/plugin",
 ]
 
 resolver = "3"
@@ -20,6 +20,7 @@ authors = ["IceRabbit"]
 
 [workspace.dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }
+futures = "0.3"
 reqwest = { version = "0.13", features = ["blocking"] }
 
 # UI
@@ -63,7 +64,12 @@ rfd = "0.17"
 sysinfo = "0.35"
 
 # Storage
-sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite", "migrate", "macros"] }
+sqlx = { version = "0.9", default-features = false, features = [
+  "runtime-tokio",
+  "sqlite",
+  "migrate",
+  "macros",
+] }
 
 # Workspace crates
 shared = { path = "crates/shared" }

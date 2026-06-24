@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use egui::ViewportCommand;
+use snafu::ResultExt;
 use tokio::sync::mpsc;
 
 use crate::{
@@ -173,10 +174,8 @@ impl App {
     fn spawn_load_friends_from_db(bridge: &AsyncBridge, storage: &storage::Storage) {
         let storage = storage.clone();
         bridge.spawn(async move {
-            match storage.list_friends().await {
-                Ok(friends) => TaskResult::FriendsLoaded(friends),
-                Err(e) => TaskResult::FriendsFailed(e.to_string()),
-            }
+            let friends = storage.list_friends().await.whatever_context("Failed to load friends from storage")?;
+            Ok(TaskResult::FriendsLoaded(friends))
         });
     }
 
@@ -195,13 +194,9 @@ impl App {
         let client = client.clone();
         let storage = storage.clone();
         bridge.spawn(async move {
-            match client.steam(key).get_friends(&steam_id).await {
-                Ok(friends) => match storage.replace_friends(&friends).await {
-                    Ok(()) => TaskResult::FriendsLoaded(friends),
-                    Err(e) => TaskResult::FriendsFailed(e.to_string()),
-                },
-                Err(e) => TaskResult::FriendsFailed(e.to_string()),
-            }
+            let friends = client.steam(key).get_friends(&steam_id).await.whatever_context("Failed to fetch friends from Steam")?;
+            storage.replace_friends(&friends).await.whatever_context("Failed to save friends")?;
+            Ok(TaskResult::FriendsLoaded(friends))
         });
     }
 
@@ -217,13 +212,9 @@ impl App {
         let client = client.clone();
         let storage = storage.clone();
         bridge.spawn(async move {
-            match client.steam(key).refresh_statuses(&friends).await {
-                Ok(friends) => match storage.replace_friends(&friends).await {
-                    Ok(()) => TaskResult::FriendsLoaded(friends),
-                    Err(e) => TaskResult::FriendsFailed(e.to_string()),
-                },
-                Err(e) => TaskResult::FriendsFailed(e.to_string()),
-            }
+            let friends = client.steam(key).refresh_statuses(&friends).await.whatever_context("Failed to refresh friend statuses")?;
+            storage.replace_friends(&friends).await.whatever_context("Failed to save friends")?;
+            Ok(TaskResult::FriendsLoaded(friends))
         });
     }
 
@@ -243,26 +234,14 @@ impl App {
         let storage = storage.clone();
         bridge.spawn(async move {
             for &locale in i18n::SUPPORTED_LOCALES {
-                match client.steam(key.clone()).get_heroes(locale).await {
-                    Ok(heroes) => {
-                        if let Err(e) = storage.upsert_heroes(locale, &heroes).await {
-                            return TaskResult::StaticDataFailed(e.to_string());
-                        }
-                    }
-                    Err(e) => return TaskResult::StaticDataFailed(e.to_string()),
-                }
-                match client.stratz(token.clone()).get_items(locale).await {
-                    Ok(items) => {
-                        if let Err(e) = storage.upsert_items(locale, &items).await {
-                            return TaskResult::StaticDataFailed(e.to_string());
-                        }
-                    }
-                    Err(e) => return TaskResult::StaticDataFailed(e.to_string()),
-                }
+                let heroes = client.steam(key.clone()).get_heroes(locale).await.whatever_context("Failed to fetch heroes")?;
+                storage.upsert_heroes(locale, &heroes).await.whatever_context("Failed to save heroes")?;
+                let items = client.stratz(token.clone()).get_items(locale).await.whatever_context("Failed to fetch items")?;
+                storage.upsert_items(locale, &items).await.whatever_context("Failed to save items")?;
             }
-            let heroes = storage.hero_count().await.unwrap_or_default();
-            let items = storage.item_count().await.unwrap_or_default();
-            TaskResult::StaticDataSynced { heroes, items }
+            let heroes = storage.hero_count().await.whatever_context("Failed to count heroes")?;
+            let items = storage.item_count().await.whatever_context("Failed to count items")?;
+            Ok(TaskResult::StaticDataSynced { heroes, items })
         });
     }
 
@@ -313,18 +292,17 @@ impl App {
 
         match result {
             TaskResult::FriendsLoaded(friends) => main.friends.set_friends(friends),
-            TaskResult::FriendsFailed(error) => {
-                main.friends.set_loading(false);
-                main.toasts.push_error(i18n::message("friends-error-title"), error);
-            }
             TaskResult::StaticDataSynced { heroes, items } => {
                 main.settings.set_syncing(false);
                 let summary = format!("{heroes} {} · {items} {}", i18n::message("nav-heroes"), i18n::message("nav-items"));
                 main.toasts.push_success(i18n::message("data-sync-done-title"), summary);
             }
-            TaskResult::StaticDataFailed(error) => {
+            TaskResult::TaskFailed(error) => {
+                // A failure clears whichever in-flight indicator was set; the
+                // unaffected one is already idle, so resetting both is harmless.
+                main.friends.set_loading(false);
                 main.settings.set_syncing(false);
-                main.toasts.push_error(i18n::message("data-sync-error-title"), error);
+                main.toasts.push_error(i18n::message("common-error"), error);
             }
         }
     }
