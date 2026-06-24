@@ -82,9 +82,13 @@ items-empty = 未找到物品
 
 # 设置
 settings-title = 设置
+settings-search-placeholder = 搜索设置...
+settings-search-no-results = 没有匹配的设置项
 settings-storage = 存储
 settings-app-path = 数据位置
 settings-app-path-description = Courier 存储配置、数据和缓存的位置
+settings-storage-path = 数据库位置
+settings-storage-path-description = Courier 存储比赛、好友及其他追踪数据的位置
 settings-browse = 浏览...
 settings-path-will-migrate = 保存后将把现有数据迁移到新位置。
 settings-general = 通用
@@ -127,9 +131,22 @@ settings-reset-confirm-message = 这将把所有设置恢复为默认值。此�
 settings-dota2 = Dota 2
 settings-dota2-enabled = 已启用
 settings-dota2-steam-id = Steam ID
-settings-dota2-opendota-key = OpenDota API 密钥
+settings-network = 网络
+settings-network-proxy = 代理
+settings-network-proxy-description = 所有请求都通过此代理。留空则直接连接。
+settings-network-proxy-placeholder = http://127.0.0.1:7890
+settings-secrets = API 密钥
+settings-secrets-description = 自带密钥。Courier 不提供任何默认值，且仅在本机存储这些密钥。
+settings-secrets-steam-web-api-key = Steam Web API 密钥
+settings-secrets-stratz-api-token = STRATZ API 令牌
+settings-secrets-opendota-api-key = OpenDota API 密钥
 settings-desktop-notifications-enabled = 桌面通知
 settings-desktop-notifications-sound = 通知声音
+settings-friends = 好友
+settings-friends-load-avatars = 加载头像
+settings-friends-load-avatars-description = 获取并显示每位好友的 Steam 头像。关闭可节省流量。
+settings-friends-recent-games-limit = 显示的最近游戏数
+settings-friends-recent-games-limit-description = 在关注列表中为每位好友列出多少个最近游玩的游戏。
 
 # 通用
 common-loading = 加载中...
@@ -196,3 +213,43 @@ feedback-coming-soon = 反馈功能即将推出！
 # 更新（占位）
 updates-title = 更新
 updates-check-coming-soon = 更新检查功能即将推出！
+
+# 好友 - 刷新与状态
+friends-sync = 同步列表
+friends-refresh-status = 刷新状态
+friends-sort = 排序
+friends-sort-status = 状态
+friends-sort-game = 当前游戏
+friends-sort-name = 名称
+friends-not-in-game = 未在游戏中
+friends-online = 在线
+friends-offline = 离线
+friends-error-title = 无法刷新好友列表
+friends-error-credentials = 请先在设置中填写 Steam ID 和 Steam Web API 密钥。
+friends-status-in-game = 游戏中
+friends-status-offline = 离线
+friends-status-online = 在线
+friends-status-busy = 忙碌
+friends-status-away = 离开
+friends-status-snooze = 打盹
+friends-status-looking-to-trade = 想要交易
+friends-status-looking-to-play = 想要游戏
+friends-recent-games = 最近游玩
+friends-playtime-2weeks = 两周
+friends-playtime-total = 总计
+
+# 设置 - 游戏数据同步
+settings-game-data = 游戏数据
+settings-game-data-description = 用于展示比赛结果的英雄和物品数据。将同步所有语言。
+settings-game-data-sync = 立即同步
+settings-game-data-syncing = 同步中...
+
+# 游戏数据同步结果
+data-sync-done-title = 游戏数据已同步
+data-sync-error-title = 游戏数据同步失败
+data-sync-error-credentials = 请先在设置中填写 Steam Web API 密钥和 Stratz API 令牌。
+
+# 网络 / 代理
+network-proxy-updated-title = 代理已更新
+network-proxy-updated-message = 连接设置已应用。
+network-proxy-error-title = 代理无效

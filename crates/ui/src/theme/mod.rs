@@ -119,7 +119,7 @@ impl CourierTheme {
         visuals.faint_bg_color = p.surface_secondary;
 
         visuals.selection.bg_fill = p.primary.linear_multiply(0.4);
-        visuals.selection.stroke = egui::Stroke::new(1.0, p.primary);
+        visuals.selection.stroke = egui::Stroke::new(1_f32, p.primary);
 
         visuals.hyperlink_color = p.primary;
         visuals.warn_fg_color = p.warning;
@@ -127,35 +127,35 @@ impl CourierTheme {
 
         visuals.widgets.noninteractive.bg_fill = p.surface;
         visuals.widgets.noninteractive.weak_bg_fill = p.surface_secondary;
-        visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0, p.text_secondary);
-        visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(0.5, p.border_light);
+        visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1_f32, p.text_secondary);
+        visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(0.5_f32, p.border_light);
         visuals.widgets.noninteractive.corner_radius = egui::CornerRadius::same(radius::MEDIUM);
 
         visuals.widgets.inactive.bg_fill = p.surface;
         visuals.widgets.inactive.weak_bg_fill = p.surface_secondary;
-        visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0, p.text_secondary);
-        visuals.widgets.inactive.bg_stroke = egui::Stroke::new(0.5, p.border);
+        visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1_f32, p.text_secondary);
+        visuals.widgets.inactive.bg_stroke = egui::Stroke::new(0.5_f32, p.border);
         visuals.widgets.inactive.corner_radius = egui::CornerRadius::same(radius::MEDIUM);
 
         visuals.widgets.hovered.bg_fill = p.surface_hover;
         visuals.widgets.hovered.weak_bg_fill = p.surface_hover;
-        visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0, p.text);
-        visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0, p.primary);
+        visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1_f32, p.text);
+        visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1_f32, p.border);
         visuals.widgets.hovered.corner_radius = egui::CornerRadius::same(radius::MEDIUM);
 
         visuals.widgets.active.bg_fill = p.primary;
         visuals.widgets.active.weak_bg_fill = p.primary.linear_multiply(0.8);
-        visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0, egui::Color32::WHITE);
-        visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0, p.primary_hover);
+        visuals.widgets.active.fg_stroke = egui::Stroke::new(1_f32, p.on_primary);
+        visuals.widgets.active.bg_stroke = egui::Stroke::new(1_f32, p.primary);
         visuals.widgets.active.corner_radius = egui::CornerRadius::same(radius::MEDIUM);
 
         visuals.widgets.open.bg_fill = p.surface_hover;
         visuals.widgets.open.weak_bg_fill = p.surface_hover;
-        visuals.widgets.open.fg_stroke = egui::Stroke::new(1.0, p.text);
-        visuals.widgets.open.bg_stroke = egui::Stroke::new(1.0, p.primary);
+        visuals.widgets.open.fg_stroke = egui::Stroke::new(1_f32, p.text);
+        visuals.widgets.open.bg_stroke = egui::Stroke::new(1_f32, p.border);
         visuals.widgets.open.corner_radius = egui::CornerRadius::same(radius::MEDIUM);
 
-        visuals.window_stroke = egui::Stroke::new(1.0, p.border);
+        visuals.window_stroke = egui::Stroke::new(1_f32, p.border);
         visuals.window_corner_radius = egui::CornerRadius::same(radius::LARGE);
         visuals.window_shadow = egui::Shadow {
             spread: 0,

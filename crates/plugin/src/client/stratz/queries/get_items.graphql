@@ -1,0 +1,11 @@
+query GetItems($language: LanguageEnum!) {
+  constants {
+    items(language: $language) {
+      id
+      shortName
+      language {
+        displayName
+      }
+    }
+  }
+}

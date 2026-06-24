@@ -82,9 +82,13 @@ items-empty = No items found
 
 # Settings
 settings-title = Settings
+settings-search-placeholder = Search settings...
+settings-search-no-results = No settings match your search
 settings-storage = Storage
 settings-app-path = Data location
 settings-app-path-description = Where Courier stores its configuration, data, and cache
+settings-storage-path = Database location
+settings-storage-path-description = Where Courier stores your matches, friends, and other tracked data
 settings-browse = Browse...
 settings-path-will-migrate = Saving will migrate existing data to the new location.
 settings-general = General
@@ -127,9 +131,22 @@ settings-reset-confirm-message = This will reset all settings to their default v
 settings-dota2 = Dota 2
 settings-dota2-enabled = Enabled
 settings-dota2-steam-id = Steam ID
-settings-dota2-opendota-key = OpenDota API Key
+settings-network = Network
+settings-network-proxy = Proxy
+settings-network-proxy-description = Route all requests through this proxy. Leave empty for a direct connection.
+settings-network-proxy-placeholder = http://127.0.0.1:7890
+settings-secrets = API Keys
+settings-secrets-description = Bring your own keys. Courier ships no defaults and stores these only on this device.
+settings-secrets-steam-web-api-key = Steam Web API Key
+settings-secrets-stratz-api-token = STRATZ API Token
+settings-secrets-opendota-api-key = OpenDota API Key
 settings-desktop-notifications-enabled = Desktop notifications
 settings-desktop-notifications-sound = Notification sound
+settings-friends = Friends
+settings-friends-load-avatars = Load avatars
+settings-friends-load-avatars-description = Fetch and display each friend's Steam avatar. Disable to save bandwidth.
+settings-friends-recent-games-limit = Recent games shown
+settings-friends-recent-games-limit-description = How many recently played games to list per friend in the watch list.
 
 # Common
 common-loading = Loading...
@@ -196,3 +213,43 @@ feedback-coming-soon = Feedback feature coming soon!
 # Updates (placeholder)
 updates-title = Updates
 updates-check-coming-soon = Update checking coming soon!
+
+# Friends - refresh and status
+friends-sync = Sync list
+friends-refresh-status = Refresh status
+friends-sort = Sort
+friends-sort-status = Status
+friends-sort-game = Current game
+friends-sort-name = Name
+friends-not-in-game = Not in a game
+friends-online = Online
+friends-offline = Offline
+friends-error-title = Could not refresh friends
+friends-error-credentials = Set your Steam ID and Steam Web API key in Settings first.
+friends-status-in-game = In game
+friends-status-offline = Offline
+friends-status-online = Online
+friends-status-busy = Busy
+friends-status-away = Away
+friends-status-snooze = Snooze
+friends-status-looking-to-trade = Looking to trade
+friends-status-looking-to-play = Looking to play
+friends-recent-games = Recently played
+friends-playtime-2weeks = 2 weeks
+friends-playtime-total = Total
+
+# Settings - game data sync
+settings-game-data = Game Data
+settings-game-data-description = Hero and item reference data used to display match results. Synced for all languages.
+settings-game-data-sync = Sync now
+settings-game-data-syncing = Syncing...
+
+# Game data sync results
+data-sync-done-title = Game data synced
+data-sync-error-title = Game data sync failed
+data-sync-error-credentials = Set your Steam Web API key and Stratz API token in Settings first.
+
+# Network / proxy
+network-proxy-updated-title = Proxy updated
+network-proxy-updated-message = Connection settings applied.
+network-proxy-error-title = Invalid proxy

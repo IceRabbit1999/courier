@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use egui::ViewportCommand;
+use snafu::ResultExt;
 use tokio::sync::mpsc;
 
 use crate::{
@@ -91,12 +92,16 @@ pub struct App {
     theme: CourierTheme,
     current_title: String,
     bridge: AsyncBridge,
+    runtime: tokio::runtime::Handle,
+    storage: storage::Storage,
+    client: plugin::Client,
+    client_proxy: Option<String>,
     rx: mpsc::UnboundedReceiver<TaskResult>,
     toast_rx: mpsc::UnboundedReceiver<toast::ToastEvent>,
 }
 
 impl App {
-    pub fn new(cc: &eframe::CreationContext<'_>, runtime: tokio::runtime::Handle) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>, runtime: tokio::runtime::Handle, storage: storage::Storage, client: plugin::Client) -> Self {
         let mut fonts = egui::FontDefinitions::default();
         egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
 
@@ -115,6 +120,11 @@ impl App {
         }
 
         cc.egui_ctx.set_fonts(fonts);
+        egui_extras::install_image_loaders(&cc.egui_ctx);
+
+        let mut style = (*cc.egui_ctx.global_style()).clone();
+        style.spacing.button_padding = egui::vec2(12.0, 6.0);
+        cc.egui_ctx.set_global_style(style);
 
         let config = configs::read();
 
@@ -134,21 +144,137 @@ impl App {
         let (tx, rx) = mpsc::unbounded_channel::<TaskResult>();
         let (toast_tx, toast_rx) = mpsc::unbounded_channel::<toast::ToastEvent>();
         let toast_sender = toast::ToastSender::new(toast_tx);
-        let bridge = AsyncBridge::new(runtime, tx, cc.egui_ctx.clone(), toast_sender);
+        let bridge = AsyncBridge::new(runtime.clone(), tx, cc.egui_ctx.clone(), toast_sender);
 
         let state = if configs::is_first_launch() {
             AppState::Setup(Box::default())
         } else {
+            // Populate the watch list from the last-synced data without a network call.
+            Self::spawn_load_friends_from_db(&bridge, &storage);
             AppState::Main(Box::new(MainState::new(bridge.clone())))
         };
+
+        let client_proxy = config.network.proxy.clone();
 
         Self {
             state,
             theme: CourierTheme::new(theme_mode),
             current_title: String::new(),
             bridge,
+            runtime,
+            storage,
+            client,
+            client_proxy,
             rx,
             toast_rx,
+        }
+    }
+
+    /// Load the stored friend list off the UI thread (no network).
+    fn spawn_load_friends_from_db(bridge: &AsyncBridge, storage: &storage::Storage) {
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            let friends = storage.list_friends().await.whatever_context("Failed to load friends from storage")?;
+            Ok(TaskResult::FriendsLoaded(friends))
+        });
+    }
+
+    /// Sync the full friend list from Steam (friend list + player summaries),
+    /// picking up any newly added or removed friends, then store and hand it back.
+    fn spawn_sync_friends(bridge: &AsyncBridge, client: &plugin::Client, storage: &storage::Storage) {
+        let (steam_id, key) = {
+            let config = configs::read();
+            (config.games.dota2.steam_id.clone(), config.secrets.steam_web_api_key.clone())
+        };
+        let (Some(steam_id), Some(key)) = (steam_id, key) else {
+            bridge.toasts().error(i18n::message("friends-error-title"), i18n::message("friends-error-credentials"));
+            return;
+        };
+
+        let client = client.clone();
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            let friends = client.steam(key).get_friends(&steam_id).await.whatever_context("Failed to fetch friends from Steam")?;
+            storage.replace_friends(&friends).await.whatever_context("Failed to save friends")?;
+            Ok(TaskResult::FriendsLoaded(friends))
+        });
+    }
+
+    /// Refresh the online state and current game of the already-known `friends`
+    /// (player summaries only; no friend-list fetch), then store and hand it back.
+    fn spawn_refresh_statuses(bridge: &AsyncBridge, client: &plugin::Client, storage: &storage::Storage, friends: Vec<shared::Friend>) {
+        let key = configs::read().secrets.steam_web_api_key.clone();
+        let Some(key) = key else {
+            bridge.toasts().error(i18n::message("friends-error-title"), i18n::message("friends-error-credentials"));
+            return;
+        };
+
+        let client = client.clone();
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            let friends = client.steam(key).refresh_statuses(&friends).await.whatever_context("Failed to refresh friend statuses")?;
+            storage.replace_friends(&friends).await.whatever_context("Failed to save friends")?;
+            Ok(TaskResult::FriendsLoaded(friends))
+        });
+    }
+
+    /// Sync static reference data: heroes from Steam, items from Stratz, for every
+    /// supported locale, then report the stored row counts.
+    fn spawn_sync_static_data(bridge: &AsyncBridge, client: &plugin::Client, storage: &storage::Storage) {
+        let (key, token) = {
+            let config = configs::read();
+            (config.secrets.steam_web_api_key.clone(), config.secrets.stratz_api_token.clone())
+        };
+        let (Some(key), Some(token)) = (key, token) else {
+            bridge.toasts().error(i18n::message("data-sync-error-title"), i18n::message("data-sync-error-credentials"));
+            return;
+        };
+
+        let client = client.clone();
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            for &locale in i18n::SUPPORTED_LOCALES {
+                let heroes = client.steam(key.clone()).get_heroes(locale).await.whatever_context("Failed to fetch heroes")?;
+                storage.upsert_heroes(locale, &heroes).await.whatever_context("Failed to save heroes")?;
+                let items = client.stratz(token.clone()).get_items(locale).await.whatever_context("Failed to fetch items")?;
+                storage.upsert_items(locale, &items).await.whatever_context("Failed to save items")?;
+            }
+            let heroes = storage.hero_count().await.whatever_context("Failed to count heroes")?;
+            let items = storage.item_count().await.whatever_context("Failed to count items")?;
+            Ok(TaskResult::StaticDataSynced { heroes, items })
+        });
+    }
+
+    /// Move the on-disk storage to `new_path`: close the pool so the database
+    /// file is released, migrate the directory contents, then reopen at the new
+    /// location.
+    fn migrate_storage(runtime: &tokio::runtime::Handle, storage: &mut storage::Storage, new_path: PathBuf) {
+        runtime.block_on(storage.close());
+
+        if let Err(e) = configs::migrate_storage_path(new_path) {
+            tracing::error!("Failed to migrate storage data: {e}");
+        }
+
+        match runtime.block_on(storage::Storage::open(configs::storage_path())) {
+            Ok(reopened) => *storage = reopened,
+            Err(e) => tracing::error!("Failed to reopen storage after migration: {e}"),
+        }
+    }
+
+    /// Rebuild the HTTP client when the proxy setting changes so the new proxy
+    /// takes effect without restarting the app. No-ops when the proxy is
+    /// unchanged; on an invalid proxy the existing client is kept.
+    fn reload_client(client: &mut plugin::Client, current_proxy: &mut Option<String>, proxy: Option<String>, toasts: &mut toast::ToastManager) {
+        if *current_proxy == proxy {
+            return;
+        }
+        match plugin::Client::new(proxy.as_deref()) {
+            Ok(new_client) => {
+                *client = new_client;
+                *current_proxy = proxy;
+                toasts.push_success(i18n::message("network-proxy-updated-title"), i18n::message("network-proxy-updated-message"));
+            }
+            Err(e) => toasts.push_error(i18n::message("network-proxy-error-title"), e.to_string()),
         }
     }
 
@@ -159,12 +285,26 @@ impl App {
         }
     }
 
-    fn handle_task_result(&mut self, _result: TaskResult) {
-        // Dispatch results to the appropriate screen/state.
-        // match result {
-        //     TaskResult::MatchesLoaded(matches) => { ... }
-        //     TaskResult::MatchesFailed(err) => { ... }
-        // }
+    fn handle_task_result(&mut self, result: TaskResult) {
+        let AppState::Main(main) = &mut self.state else {
+            return;
+        };
+
+        match result {
+            TaskResult::FriendsLoaded(friends) => main.friends.set_friends(friends),
+            TaskResult::StaticDataSynced { heroes, items } => {
+                main.settings.set_syncing(false);
+                let summary = format!("{heroes} {} · {items} {}", i18n::message("nav-heroes"), i18n::message("nav-items"));
+                main.toasts.push_success(i18n::message("data-sync-done-title"), summary);
+            }
+            TaskResult::TaskFailed(error) => {
+                // A failure clears whichever in-flight indicator was set; the
+                // unaffected one is already idle, so resetting both is harmless.
+                main.friends.set_loading(false);
+                main.settings.set_syncing(false);
+                main.toasts.push_error(i18n::message("common-error"), error);
+            }
+        }
     }
 
     fn handle_menu_action(main: &mut MainState, action: menu_bar::MenuAction) {
@@ -290,57 +430,80 @@ impl eframe::App for App {
                     });
 
                 egui::CentralPanel::default().show_inside(ui, |ui| {
-                    let settings_action = match main.route {
+                    let settings_actions = match main.route {
                         Route::Dashboard => {
                             main.home.show(ui);
-                            None
+                            Vec::new()
                         }
                         Route::Friends => {
-                            main.friends.show(ui);
-                            None
+                            match main.friends.show(ui) {
+                                Some(screens::friend::FriendAction::SyncFriends) => {
+                                    main.friends.set_loading(true);
+                                    Self::spawn_sync_friends(&self.bridge, &self.client, &self.storage);
+                                }
+                                Some(screens::friend::FriendAction::RefreshStatuses) => {
+                                    let friends = main.friends.friends().to_vec();
+                                    main.friends.set_loading(true);
+                                    Self::spawn_refresh_statuses(&self.bridge, &self.client, &self.storage, friends);
+                                }
+                                None => {}
+                            }
+                            Vec::new()
                         }
                         Route::Matches => {
                             main.matches.show(ui);
-                            None
+                            Vec::new()
                         }
                         Route::Heroes => {
                             main.heroes.show(ui);
-                            None
+                            Vec::new()
                         }
                         Route::Items => {
                             main.items.show(ui);
-                            None
+                            Vec::new()
                         }
                         Route::Settings => main.settings.show(ui),
                     };
 
-                    match settings_action {
-                        Some(screens::setting::SettingsAction::ThemeChanged(pref)) => {
-                            let new_mode = match pref {
-                                configs::ThemePreference::Light => ThemeMode::Light,
-                                configs::ThemePreference::Dark => ThemeMode::Dark,
-                                configs::ThemePreference::System => ThemeMode::Dark,
-                            };
-                            self.theme.set_mode(new_mode);
-                        }
-                        Some(screens::setting::SettingsAction::Reset) => {
-                            configs::update(|cfg| {
-                                *cfg = configs::AppConfig::default();
-                            });
-                            if let Err(e) = configs::save() {
-                                tracing::error!("Failed to save config after reset: {e}");
+                    for action in settings_actions {
+                        match action {
+                            screens::setting::SettingsAction::ThemeChanged(pref) => {
+                                let new_mode = match pref {
+                                    configs::ThemePreference::Light => ThemeMode::Light,
+                                    configs::ThemePreference::Dark => ThemeMode::Dark,
+                                    configs::ThemePreference::System => ThemeMode::Dark,
+                                };
+                                self.theme.set_mode(new_mode);
                             }
-                            let default_theme = configs::AppConfig::default().general.theme;
-                            let new_mode = match default_theme {
-                                configs::ThemePreference::Light => ThemeMode::Light,
-                                configs::ThemePreference::Dark => ThemeMode::Dark,
-                                configs::ThemePreference::System => ThemeMode::Dark,
-                            };
-                            self.theme.set_mode(new_mode);
-                            // Rebuild the settings screen to pick up default values
-                            main.settings = screens::setting::SettingScreen::new();
+                            screens::setting::SettingsAction::StoragePathChanged(new_path) => {
+                                Self::migrate_storage(&self.runtime, &mut self.storage, new_path);
+                            }
+                            screens::setting::SettingsAction::ProxyChanged(proxy) => {
+                                Self::reload_client(&mut self.client, &mut self.client_proxy, proxy, &mut main.toasts);
+                            }
+                            screens::setting::SettingsAction::SyncStaticData => {
+                                main.settings.set_syncing(true);
+                                Self::spawn_sync_static_data(&self.bridge, &self.client, &self.storage);
+                            }
+                            screens::setting::SettingsAction::Reset => {
+                                configs::update(|cfg| {
+                                    *cfg = configs::AppConfig::default();
+                                });
+                                if let Err(e) = configs::save() {
+                                    tracing::error!("Failed to save config after reset: {e}");
+                                }
+                                let default_theme = configs::AppConfig::default().general.theme;
+                                let new_mode = match default_theme {
+                                    configs::ThemePreference::Light => ThemeMode::Light,
+                                    configs::ThemePreference::Dark => ThemeMode::Dark,
+                                    configs::ThemePreference::System => ThemeMode::Dark,
+                                };
+                                self.theme.set_mode(new_mode);
+                                Self::reload_client(&mut self.client, &mut self.client_proxy, None, &mut main.toasts);
+                                // Rebuild the settings screen to pick up default values
+                                main.settings = screens::setting::SettingScreen::new();
+                            }
                         }
-                        None => {}
                     }
                 });
 
@@ -358,6 +521,7 @@ impl eframe::App for App {
                             if let Err(e) = configs::save() {
                                 tracing::error!("Failed to save config on exit: {e}");
                             }
+                            self.runtime.block_on(self.storage.close());
                             ctx.send_viewport_cmd(ViewportCommand::Close);
                         }
                         exit_modal::ExitAction::Cancel => {

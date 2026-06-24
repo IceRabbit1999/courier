@@ -55,7 +55,7 @@ impl SetupScreen {
             // Language section
             egui::Frame::NONE
                 .fill(palette.surface)
-                .stroke(egui::Stroke::new(1.0, palette.border))
+                .stroke(egui::Stroke::new(1_f32, palette.border))
                 .corner_radius(egui::CornerRadius::same(radius::MEDIUM))
                 .inner_margin(spacing::MEDIUM)
                 .show(ui, |ui| {
@@ -80,7 +80,7 @@ impl SetupScreen {
             // App path section
             egui::Frame::NONE
                 .fill(palette.surface)
-                .stroke(egui::Stroke::new(1.0, palette.border))
+                .stroke(egui::Stroke::new(1_f32, palette.border))
                 .corner_radius(egui::CornerRadius::same(radius::MEDIUM))
                 .inner_margin(spacing::MEDIUM)
                 .show(ui, |ui| {
@@ -115,7 +115,7 @@ impl SetupScreen {
                         .size(font_size::BODY)
                         .color(palette.text_secondary),
                 )
-                .stroke(egui::Stroke::new(1.0, palette.border))
+                .stroke(egui::Stroke::new(1_f32, palette.border))
                 .fill(Color32::TRANSPARENT)
                 .corner_radius(egui::CornerRadius::same(radius::MEDIUM));
 
@@ -125,7 +125,7 @@ impl SetupScreen {
                 }
 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let continue_btn = egui::Button::new(egui::RichText::new(i18n::message("setup-confirm")).size(font_size::BODY).color(Color32::WHITE))
+                    let continue_btn = egui::Button::new(egui::RichText::new(i18n::message("setup-confirm")).size(font_size::BODY).color(palette.on_primary))
                         .fill(palette.primary)
                         .corner_radius(egui::CornerRadius::same(radius::MEDIUM));
 

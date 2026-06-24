@@ -18,7 +18,8 @@ shared = { workspace = true }
 i18n = { workspace = true }
 configs = { workspace = true }
 ui = { workspace = true }
-plugin-core = { workspace = true }
+storage = { workspace = true }
+plugin= { workspace = true }
 
 eframe = { workspace = true }
 egui = { workspace = true }

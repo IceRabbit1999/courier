@@ -58,6 +58,8 @@ pub struct ThemeConfig {
 
     pub primary: SerializableColor,
     pub primary_hover: SerializableColor,
+    /// Foreground color for content sitting on top of `primary` (gold) fills.
+    pub on_primary: SerializableColor,
     pub secondary: SerializableColor,
 
     pub success: SerializableColor,
@@ -89,85 +91,78 @@ impl Default for ThemeConfig {
 impl ThemeConfig {
     pub fn dark() -> Self {
         Self {
-            // Discord-inspired dark backgrounds with layered depth
-            background: SerializableColor::new(30, 31, 34),        // #1e1f22
-            surface: SerializableColor::new(43, 45, 49),           // #2b2d31
-            surface_hover: SerializableColor::new(56, 58, 64),     // #383a40
-            surface_secondary: SerializableColor::new(49, 51, 56), // #313338
+            // Warm graphite, layered from deepest (sidebar) to lightest (surface).
+            background: SerializableColor::new(23, 24, 27),        // #17181b
+            surface: SerializableColor::new(31, 33, 38),           // #1f2126
+            surface_hover: SerializableColor::new(42, 44, 50),     // #2a2c32
+            surface_secondary: SerializableColor::new(37, 39, 44), // #25272c
 
-            // High-contrast text hierarchy
-            text: SerializableColor::new(242, 243, 245),           // #f2f3f5
-            text_secondary: SerializableColor::new(181, 186, 193), // #b5bac1
-            text_muted: SerializableColor::new(148, 155, 164),     // #949ba4
+            text: SerializableColor::new(236, 237, 238),           // #ecedee
+            text_secondary: SerializableColor::new(166, 169, 176), // #a6a9b0
+            text_muted: SerializableColor::new(113, 117, 124),     // #71757c
 
-            // Discord blurple as primary
-            primary: SerializableColor::new(88, 101, 242),      // #5865f2
-            primary_hover: SerializableColor::new(71, 82, 196), // #4752c4
-            secondary: SerializableColor::new(82, 136, 193),    // #5288c1 (Telegram blue)
+            // Gold accent. Dark text rides on top of it (see on_primary).
+            primary: SerializableColor::new(224, 168, 62),       // #e0a83e
+            primary_hover: SerializableColor::new(201, 146, 47), // #c9922f
+            on_primary: SerializableColor::new(24, 25, 28),      // #18191c
+            secondary: SerializableColor::new(110, 140, 168),    // #6e8ca8
 
-            // Discord status colors
-            success: SerializableColor::new(35, 165, 90),  // #23a55a
-            danger: SerializableColor::new(218, 55, 60),   // #da373c
-            warning: SerializableColor::new(240, 178, 50), // #f0b232
+            success: SerializableColor::new(66, 178, 124), // #42b27c
+            danger: SerializableColor::new(221, 90, 82),   // #dd5a52
+            warning: SerializableColor::new(224, 138, 60), // #e08a3c
 
-            victory: SerializableColor::new(35, 165, 90), // #23a55a
-            defeat: SerializableColor::new(218, 55, 60),  // #da373c
+            victory: SerializableColor::new(66, 178, 124), // #42b27c
+            defeat: SerializableColor::new(221, 90, 82),   // #dd5a52
 
-            // Sidebar - deepest layer
-            sidebar_bg: SerializableColor::new(30, 31, 34),          // #1e1f22
-            sidebar_item_hover: SerializableColor::new(53, 55, 60),  // #35373c
-            sidebar_item_active: SerializableColor::new(64, 66, 73), // #404249
+            sidebar_bg: SerializableColor::new(19, 20, 23),          // #131417
+            sidebar_item_hover: SerializableColor::new(31, 33, 38),  // #1f2126
+            sidebar_item_active: SerializableColor::new(43, 45, 51), // #2b2d33
 
-            // Subtle borders
-            border: SerializableColor::new(63, 65, 71),       // #3f4147
-            border_light: SerializableColor::new(53, 55, 60), // #35373c
+            border: SerializableColor::new(45, 47, 53),       // #2d2f35
+            border_light: SerializableColor::new(35, 37, 42), // #23252a
 
-            // Gradient: blurple to Telegram blue
-            gradient_start: SerializableColor::new(88, 101, 242), // #5865f2
-            gradient_end: SerializableColor::new(82, 136, 193),   // #5288c1
-            accent: SerializableColor::new(88, 101, 242),         // #5865f2
-            accent_muted: SerializableColor::new(60, 69, 165),    // #3c45a5
+            gradient_start: SerializableColor::new(224, 168, 62), // #e0a83e
+            gradient_end: SerializableColor::new(201, 146, 47),   // #c9922f
+            accent: SerializableColor::new(224, 168, 62),         // #e0a83e
+            accent_muted: SerializableColor::new(138, 110, 46),   // #8a6e2e
         }
     }
 
     pub fn light() -> Self {
         Self {
-            // Telegram-inspired light backgrounds
-            background: SerializableColor::new(255, 255, 255),        // #ffffff
-            surface: SerializableColor::new(240, 241, 243),           // #f0f1f3
-            surface_hover: SerializableColor::new(232, 232, 232),     // #e8e8e8
-            surface_secondary: SerializableColor::new(245, 245, 247), // #f5f5f7
+            // Warm paper with a darker bronze accent (gold lacks contrast on white).
+            background: SerializableColor::new(246, 246, 244),        // #f6f6f4
+            surface: SerializableColor::new(255, 255, 255),           // #ffffff
+            surface_hover: SerializableColor::new(237, 237, 233),     // #ededec
+            surface_secondary: SerializableColor::new(240, 240, 237), // #f0f0ed
 
-            // Near-black text with clear hierarchy
-            text: SerializableColor::new(26, 26, 26),           // #1a1a1a
-            text_secondary: SerializableColor::new(90, 90, 90), // #5a5a5a
-            text_muted: SerializableColor::new(138, 138, 138),  // #8a8a8a
+            text: SerializableColor::new(27, 28, 31),           // #1b1c1f
+            text_secondary: SerializableColor::new(86, 89, 97), // #565961
+            text_muted: SerializableColor::new(138, 141, 148),  // #8a8d94
 
-            // Telegram blue as primary
-            primary: SerializableColor::new(51, 144, 236),       // #3390ec
-            primary_hover: SerializableColor::new(43, 127, 212), // #2b7fd4
-            secondary: SerializableColor::new(88, 101, 242),     // #5865f2
+            primary: SerializableColor::new(176, 122, 28),       // #b07a1c
+            primary_hover: SerializableColor::new(150, 102, 18), // #966612
+            on_primary: SerializableColor::new(255, 255, 255),   // #ffffff
+            secondary: SerializableColor::new(90, 120, 150),     // #5a7896
 
-            // Vibrant semantic colors
-            success: SerializableColor::new(45, 165, 82),  // #2da552
-            danger: SerializableColor::new(229, 57, 53),   // #e53935
-            warning: SerializableColor::new(230, 162, 24), // #e6a218
+            success: SerializableColor::new(46, 158, 104), // #2e9e68
+            danger: SerializableColor::new(209, 70, 64),   // #d14640
+            warning: SerializableColor::new(201, 120, 30), // #c9781e
 
-            victory: SerializableColor::new(45, 165, 82), // #2da552
-            defeat: SerializableColor::new(229, 57, 53),  // #e53935
+            victory: SerializableColor::new(46, 158, 104), // #2e9e68
+            defeat: SerializableColor::new(209, 70, 64),   // #d14640
 
-            // Light sidebar
-            sidebar_bg: SerializableColor::new(240, 241, 243),          // #f0f1f3
-            sidebar_item_hover: SerializableColor::new(227, 228, 230),  // #e3e4e6
-            sidebar_item_active: SerializableColor::new(213, 215, 218), // #d5d7da
+            sidebar_bg: SerializableColor::new(240, 240, 236),          // #f0f0ec
+            sidebar_item_hover: SerializableColor::new(231, 231, 226),  // #e7e7e2
+            sidebar_item_active: SerializableColor::new(220, 218, 209), // #dcdad1
 
-            border: SerializableColor::new(220, 220, 220),       // #dcdcdc
-            border_light: SerializableColor::new(235, 235, 235), // #ebebeb
+            border: SerializableColor::new(226, 226, 221),       // #e2e2dd
+            border_light: SerializableColor::new(236, 236, 232), // #ecece8
 
-            gradient_start: SerializableColor::new(51, 144, 236), // #3390ec
-            gradient_end: SerializableColor::new(88, 101, 242),   // #5865f2
-            accent: SerializableColor::new(51, 144, 236),         // #3390ec
-            accent_muted: SerializableColor::new(122, 178, 236),  // #7ab2ec
+            gradient_start: SerializableColor::new(176, 122, 28), // #b07a1c
+            gradient_end: SerializableColor::new(150, 102, 18),   // #966612
+            accent: SerializableColor::new(176, 122, 28),         // #b07a1c
+            accent_muted: SerializableColor::new(190, 168, 120),  // #bea878
         }
     }
 
@@ -184,6 +179,7 @@ impl ThemeConfig {
 
             primary: self.primary.to_color32(),
             primary_hover: self.primary_hover.to_color32(),
+            on_primary: self.on_primary.to_color32(),
             secondary: self.secondary.to_color32(),
 
             success: self.success.to_color32(),
@@ -221,6 +217,7 @@ pub struct ColorPalette {
 
     pub primary: Color32,
     pub primary_hover: Color32,
+    pub on_primary: Color32,
     pub secondary: Color32,
 
     pub success: Color32,
@@ -244,74 +241,76 @@ pub struct ColorPalette {
 }
 
 impl ColorPalette {
-    // Discord-inspired dark theme
+    // Graphite + gold dark theme.
     pub const DARK: Self = Self {
-        background: Color32::from_rgb(30, 31, 34),        // #1e1f22
-        surface: Color32::from_rgb(43, 45, 49),           // #2b2d31
-        surface_hover: Color32::from_rgb(56, 58, 64),     // #383a40
-        surface_secondary: Color32::from_rgb(49, 51, 56), // #313338
+        background: Color32::from_rgb(23, 24, 27),        // #17181b
+        surface: Color32::from_rgb(31, 33, 38),           // #1f2126
+        surface_hover: Color32::from_rgb(42, 44, 50),     // #2a2c32
+        surface_secondary: Color32::from_rgb(37, 39, 44), // #25272c
 
-        text: Color32::from_rgb(242, 243, 245),           // #f2f3f5
-        text_secondary: Color32::from_rgb(181, 186, 193), // #b5bac1
-        text_muted: Color32::from_rgb(148, 155, 164),     // #949ba4
+        text: Color32::from_rgb(236, 237, 238),           // #ecedee
+        text_secondary: Color32::from_rgb(166, 169, 176), // #a6a9b0
+        text_muted: Color32::from_rgb(113, 117, 124),     // #71757c
 
-        primary: Color32::from_rgb(88, 101, 242),      // #5865f2
-        primary_hover: Color32::from_rgb(71, 82, 196), // #4752c4
-        secondary: Color32::from_rgb(82, 136, 193),    // #5288c1
+        primary: Color32::from_rgb(224, 168, 62),       // #e0a83e
+        primary_hover: Color32::from_rgb(201, 146, 47), // #c9922f
+        on_primary: Color32::from_rgb(24, 25, 28),      // #18191c
+        secondary: Color32::from_rgb(110, 140, 168),    // #6e8ca8
 
-        success: Color32::from_rgb(35, 165, 90),  // #23a55a
-        danger: Color32::from_rgb(218, 55, 60),   // #da373c
-        warning: Color32::from_rgb(240, 178, 50), // #f0b232
+        success: Color32::from_rgb(66, 178, 124), // #42b27c
+        danger: Color32::from_rgb(221, 90, 82),   // #dd5a52
+        warning: Color32::from_rgb(224, 138, 60), // #e08a3c
 
-        victory: Color32::from_rgb(35, 165, 90), // #23a55a
-        defeat: Color32::from_rgb(218, 55, 60),  // #da373c
+        victory: Color32::from_rgb(66, 178, 124), // #42b27c
+        defeat: Color32::from_rgb(221, 90, 82),   // #dd5a52
 
-        sidebar_bg: Color32::from_rgb(30, 31, 34),          // #1e1f22
-        sidebar_item_hover: Color32::from_rgb(53, 55, 60),  // #35373c
-        sidebar_item_active: Color32::from_rgb(64, 66, 73), // #404249
+        sidebar_bg: Color32::from_rgb(19, 20, 23),          // #131417
+        sidebar_item_hover: Color32::from_rgb(31, 33, 38),  // #1f2126
+        sidebar_item_active: Color32::from_rgb(43, 45, 51), // #2b2d33
 
-        border: Color32::from_rgb(63, 65, 71),       // #3f4147
-        border_light: Color32::from_rgb(53, 55, 60), // #35373c
+        border: Color32::from_rgb(45, 47, 53),       // #2d2f35
+        border_light: Color32::from_rgb(35, 37, 42), // #23252a
 
-        gradient_start: Color32::from_rgb(88, 101, 242), // #5865f2
-        gradient_end: Color32::from_rgb(82, 136, 193),   // #5288c1
-        accent: Color32::from_rgb(88, 101, 242),         // #5865f2
-        accent_muted: Color32::from_rgb(60, 69, 165),    // #3c45a5
+        gradient_start: Color32::from_rgb(224, 168, 62), // #e0a83e
+        gradient_end: Color32::from_rgb(201, 146, 47),   // #c9922f
+        accent: Color32::from_rgb(224, 168, 62),         // #e0a83e
+        accent_muted: Color32::from_rgb(138, 110, 46),   // #8a6e2e
     };
 
-    // Telegram-inspired light theme
+    // Warm paper + bronze light theme.
     pub const LIGHT: Self = Self {
-        background: Color32::WHITE,                          // #ffffff
-        surface: Color32::from_rgb(240, 241, 243),           // #f0f1f3
-        surface_hover: Color32::from_rgb(232, 232, 232),     // #e8e8e8
-        surface_secondary: Color32::from_rgb(245, 245, 247), // #f5f5f7
+        background: Color32::from_rgb(246, 246, 244),        // #f6f6f4
+        surface: Color32::WHITE,                             // #ffffff
+        surface_hover: Color32::from_rgb(237, 237, 233),     // #ededec
+        surface_secondary: Color32::from_rgb(240, 240, 237), // #f0f0ed
 
-        text: Color32::from_rgb(26, 26, 26),           // #1a1a1a
-        text_secondary: Color32::from_rgb(90, 90, 90), // #5a5a5a
-        text_muted: Color32::from_rgb(138, 138, 138),  // #8a8a8a
+        text: Color32::from_rgb(27, 28, 31),           // #1b1c1f
+        text_secondary: Color32::from_rgb(86, 89, 97), // #565961
+        text_muted: Color32::from_rgb(138, 141, 148),  // #8a8d94
 
-        primary: Color32::from_rgb(51, 144, 236),       // #3390ec
-        primary_hover: Color32::from_rgb(43, 127, 212), // #2b7fd4
-        secondary: Color32::from_rgb(88, 101, 242),     // #5865f2
+        primary: Color32::from_rgb(176, 122, 28),       // #b07a1c
+        primary_hover: Color32::from_rgb(150, 102, 18), // #966612
+        on_primary: Color32::WHITE,                     // #ffffff
+        secondary: Color32::from_rgb(90, 120, 150),     // #5a7896
 
-        success: Color32::from_rgb(45, 165, 82),  // #2da552
-        danger: Color32::from_rgb(229, 57, 53),   // #e53935
-        warning: Color32::from_rgb(230, 162, 24), // #e6a218
+        success: Color32::from_rgb(46, 158, 104), // #2e9e68
+        danger: Color32::from_rgb(209, 70, 64),   // #d14640
+        warning: Color32::from_rgb(201, 120, 30), // #c9781e
 
-        victory: Color32::from_rgb(45, 165, 82), // #2da552
-        defeat: Color32::from_rgb(229, 57, 53),  // #e53935
+        victory: Color32::from_rgb(46, 158, 104), // #2e9e68
+        defeat: Color32::from_rgb(209, 70, 64),   // #d14640
 
-        sidebar_bg: Color32::from_rgb(240, 241, 243),          // #f0f1f3
-        sidebar_item_hover: Color32::from_rgb(227, 228, 230),  // #e3e4e6
-        sidebar_item_active: Color32::from_rgb(213, 215, 218), // #d5d7da
+        sidebar_bg: Color32::from_rgb(240, 240, 236),          // #f0f0ec
+        sidebar_item_hover: Color32::from_rgb(231, 231, 226),  // #e7e7e2
+        sidebar_item_active: Color32::from_rgb(220, 218, 209), // #dcdad1
 
-        border: Color32::from_rgb(220, 220, 220),       // #dcdcdc
-        border_light: Color32::from_rgb(235, 235, 235), // #ebebeb
+        border: Color32::from_rgb(226, 226, 221),       // #e2e2dd
+        border_light: Color32::from_rgb(236, 236, 232), // #ecece8
 
-        gradient_start: Color32::from_rgb(51, 144, 236), // #3390ec
-        gradient_end: Color32::from_rgb(88, 101, 242),   // #5865f2
-        accent: Color32::from_rgb(51, 144, 236),         // #3390ec
-        accent_muted: Color32::from_rgb(122, 178, 236),  // #7ab2ec
+        gradient_start: Color32::from_rgb(176, 122, 28), // #b07a1c
+        gradient_end: Color32::from_rgb(150, 102, 18),   // #966612
+        accent: Color32::from_rgb(176, 122, 28),         // #b07a1c
+        accent_muted: Color32::from_rgb(190, 168, 120),  // #bea878
     };
 
     pub fn from_config(config: &ThemeConfig) -> Self {
@@ -335,19 +334,19 @@ pub mod spacing {
 }
 
 pub mod radius {
-    pub const SMALL: u8 = 4;
-    pub const MEDIUM: u8 = 8;
-    pub const LARGE: u8 = 12;
+    pub const SMALL: u8 = 6;
+    pub const MEDIUM: u8 = 10;
+    pub const LARGE: u8 = 14;
     pub const ROUND: u8 = 255;
 }
 
 pub mod font_size {
     pub const SMALL: f32 = 12.0;
     pub const BODY: f32 = 14.0;
-    pub const MEDIUM: f32 = 16.0;
-    pub const LARGE: f32 = 20.0;
-    pub const XLARGE: f32 = 24.0;
-    pub const TITLE: f32 = 32.0;
+    pub const MEDIUM: f32 = 15.0;
+    pub const LARGE: f32 = 18.0;
+    pub const XLARGE: f32 = 22.0;
+    pub const TITLE: f32 = 28.0;
 }
 
 pub mod sidebar {

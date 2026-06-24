@@ -2,4 +2,6 @@
 .env
 
 **/assets/
-
+.claude
+courier.db
+config.toml

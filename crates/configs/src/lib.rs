@@ -23,6 +23,8 @@ fn bootstrap_dir() -> PathBuf {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Bootstrap {
     app_path: Option<PathBuf>,
+    #[serde(default)]
+    storage_path: Option<PathBuf>,
     #[serde(skip)]
     bootstrap_file: PathBuf,
 }
@@ -38,17 +40,27 @@ impl Bootstrap {
         self.app_path.clone().unwrap()
     }
 
+    /// Where user data (the SQLite database, caches) is stored. Independent of
+    /// [`app_path`](Self::app_path); falls back to [`default_storage_path`] when unset.
+    pub fn storage_path(&self) -> PathBuf {
+        self.storage_path.clone().unwrap_or_else(default_storage_path)
+    }
+
     fn new() -> Self {
         let bootstrap_dir = bootstrap_dir();
         let bootstrap_file = bootstrap_dir.join(Self::BOOTSTRAP_FILE);
 
-        let app_path = std::fs::read_to_string(&bootstrap_file)
+        let (app_path, storage_path) = std::fs::read_to_string(&bootstrap_file)
             .ok()
             .and_then(|s| toml::from_str::<Bootstrap>(&s).ok())
-            .map(|bc| bc.app_path)
+            .map(|bc| (bc.app_path, bc.storage_path))
             .unwrap_or_default();
-        info!("Bootstrap initialized with app_path: {:?}", app_path);
-        Self { app_path, bootstrap_file }
+        info!("Bootstrap initialized with app_path: {app_path:?}, storage_path: {storage_path:?}");
+        Self {
+            app_path,
+            storage_path,
+            bootstrap_file,
+        }
     }
 
     fn save(&self) -> Result<()> {
@@ -89,10 +101,52 @@ pub fn default_app_path() -> PathBuf {
     directories::BaseDirs::new().map(|b| b.home_dir().join(".courier")).unwrap_or_else(|| PathBuf::from("."))
 }
 
+pub fn default_storage_path() -> PathBuf {
+    default_app_path().join("data")
+}
+
+pub fn storage_path() -> PathBuf {
+    BOOTSTRAP.read().storage_path()
+}
+
 pub fn set_app_path(path: PathBuf) -> Result<()> {
     let mut bootstrap = BOOTSTRAP.write();
     bootstrap.app_path = Some(path);
     bootstrap.save()
+}
+
+pub fn set_storage_path(path: PathBuf) -> Result<()> {
+    let mut bootstrap = BOOTSTRAP.write();
+    bootstrap.storage_path = Some(path);
+    bootstrap.save()
+}
+
+/// Move existing storage contents from the current location to `new_path` and
+/// persist the new path. The caller must close any open database handle first,
+/// since the SQLite file lives under the storage directory.
+pub fn migrate_storage_path(new_path: PathBuf) -> Result<()> {
+    let mut bootstrap = BOOTSTRAP.write();
+    let old_path = bootstrap.storage_path();
+
+    if old_path == new_path {
+        return Ok(());
+    }
+
+    if old_path.exists() {
+        std::fs::create_dir_all(&new_path).context(MigrationSnafu)?;
+        for entry in std::fs::read_dir(&old_path).context(MigrationSnafu)? {
+            let entry = entry.context(MigrationSnafu)?;
+            let dest = new_path.join(entry.file_name());
+            copy_path(&entry.path(), &dest)?;
+        }
+    }
+
+    bootstrap.storage_path = Some(new_path);
+    bootstrap.save()?;
+
+    let _ = std::fs::remove_dir_all(&old_path);
+
+    Ok(())
 }
 
 pub fn migrate_app_path(new_path: PathBuf) -> Result<()> {
@@ -146,7 +200,47 @@ pub struct AppConfig {
     pub appearance: AppearanceConfig,
     pub tracking: TrackingConfig,
     pub games: GamesConfig,
+    pub friends: FriendsConfig,
+    pub network: NetworkConfig,
     pub notification: NotificationsConfig,
+    pub secrets: SecretsConfig,
+}
+
+/// Network options. `proxy` is an optional proxy URL (e.g. `http://127.0.0.1:7890`)
+/// applied to every outbound request; `None` means a direct connection.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct NetworkConfig {
+    pub proxy: Option<String>,
+}
+
+/// Watch-list display options.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct FriendsConfig {
+    /// Whether to fetch and render each friend's Steam avatar image. Off by default.
+    pub load_avatars: bool,
+    /// How many recently played games to show per friend in the watch list.
+    pub recent_games_limit: usize,
+}
+
+impl Default for FriendsConfig {
+    fn default() -> Self {
+        Self {
+            load_avatars: false,
+            recent_games_limit: 5,
+        }
+    }
+}
+
+/// User-supplied API credentials (BYOK). Courier ships no defaults; every field
+/// is `None` until the user enters their own key.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SecretsConfig {
+    pub steam_web_api_key: Option<String>,
+    pub stratz_api_token: Option<String>,
+    pub opendota_api_key: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -209,16 +303,11 @@ pub struct GamesConfig {
 pub struct Dota2Config {
     pub enabled: bool,
     pub steam_id: Option<String>,
-    pub opendota_api_key: Option<String>,
 }
 
 impl Default for Dota2Config {
     fn default() -> Self {
-        Self {
-            enabled: true,
-            steam_id: None,
-            opendota_api_key: None,
-        }
+        Self { enabled: true, steam_id: None }
     }
 }
 
