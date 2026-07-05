@@ -1,10 +1,17 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use serde::Deserialize;
 use shared::{HeroEntry, PersonaState};
+use snafu::OptionExt;
 use tracing::warn;
 
-use crate::client::{Client, Endpoint};
+use crate::{
+    client::{Client, Endpoint},
+    error::UnresolvedProfileSnafu,
+};
 
 const BASE_URL: &str = "https://api.steampowered.com";
 
@@ -121,6 +128,92 @@ impl Steam<'_> {
         Ok(merged)
     }
 
+    /// Refresh only the dynamic fields (persona state, current game, last log-off)
+    /// of an already-known set of follows by re-fetching their player summaries.
+    /// `added_at` is preserved from `follows`.
+    pub async fn refresh_follow_statuses(&self, follows: &[shared::Follow]) -> crate::Result<Vec<shared::Follow>> {
+        if follows.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let added_at = follows.iter().map(|f| (f.steam_id.as_str(), f.added_at)).collect::<HashMap<&str, i64>>();
+        let ids = follows.iter().map(|f| f.steam_id.as_str()).collect::<Vec<_>>();
+        let summaries = self.summaries_for(&ids).await?;
+        let mut merged = merge_follow_summaries(&added_at, summaries);
+
+        let _ = futures::future::join_all(merged.iter_mut().map(|f| async move {
+            if f.persona_state.is_online() {
+                let games = self
+                    .get_recent_games(&f.steam_id)
+                    .await
+                    .inspect_err(|e| warn!(steamid=%f.steam_id, "Failed to fetch recent games: {e:?}"))?;
+                f.recent_games = games;
+            }
+            Ok::<_, crate::Error>(())
+        }))
+        .await;
+        Ok(merged)
+    }
+
+    /// `ISteamUser/ResolveVanityURL` — turn a vanity name (the `<name>` in
+    /// `steamcommunity.com/id/<name>`) into a steamid64. Returns `None` if Steam
+    /// has no match for it.
+    ///
+    /// `GET 'https://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key=<KEY>&vanityurl=<NAME>'`
+    pub async fn resolve_vanity_url(&self, vanity: &str) -> crate::Result<Option<String>> {
+        let response = self
+            .client
+            .execute(ResolveVanityUrl {
+                key: self.key.clone(),
+                vanity_url: vanity.to_owned(),
+            })
+            .await?;
+        Ok(if response.response.success == 1 { response.response.steam_id } else { None })
+    }
+
+    /// Resolve a pasted Steam64 id or profile URL to a steamid64. Accepts a bare
+    /// id, a `.../profiles/<id>` URL, a `.../id/<vanity>` URL, or a bare vanity
+    /// name.
+    async fn resolve_steam_id(&self, input: &str) -> crate::Result<String> {
+        let trimmed = input.trim().trim_end_matches('/');
+
+        if let Some(id) = trimmed.rsplit("/profiles/").next().filter(|s| *s != trimmed) {
+            return Ok(id.to_owned());
+        }
+
+        let vanity = trimmed.rsplit("/id/").next().filter(|s| *s != trimmed).unwrap_or(trimmed);
+        if !vanity.is_empty() && vanity.chars().all(|c| c.is_ascii_digit()) {
+            return Ok(vanity.to_owned());
+        }
+
+        self.resolve_vanity_url(vanity).await?.context(UnresolvedProfileSnafu { input: input.to_owned() })
+    }
+
+    /// Turn a pasted Steam64 id or profile URL into a [`shared::Follow`] seed by
+    /// resolving it, then fetching its player summary and recent games.
+    pub async fn resolve_and_summarize(&self, input: &str) -> crate::Result<shared::Follow> {
+        let steam_id = self.resolve_steam_id(input).await?;
+        let summary = self
+            .get_player_summaries(&[&steam_id])
+            .await?
+            .into_iter()
+            .next()
+            .context(UnresolvedProfileSnafu { input: input.to_owned() })?;
+        let recent_games = self.get_recent_games(&steam_id).await.unwrap_or_default();
+
+        Ok(shared::Follow {
+            added_at: unix_now(),
+            steam_id: summary.steam_id,
+            persona_name: summary.persona_name,
+            avatar: summary.avatar,
+            profile_url: summary.profile_url,
+            persona_state: PersonaState::from_i32(summary.persona_state),
+            last_log_off: summary.last_log_off,
+            game_extra_info: summary.game_extra_info,
+            recent_games,
+        })
+    }
+
     /// `IPlayerService/GetRecentlyPlayedGames` — the games a single profile has played in the
     /// trailing two weeks. Returns an empty list for private profiles (the endpoint omits
     /// `games` rather than erroring).
@@ -195,6 +288,24 @@ fn merge_summaries(friend_since: &HashMap<&str, i64>, summaries: Vec<PlayerSumma
         .into_iter()
         .map(|summary| shared::Friend {
             friend_since: friend_since.get(summary.steam_id.as_str()).copied().unwrap_or_default(),
+            persona_state: PersonaState::from_i32(summary.persona_state),
+            steam_id: summary.steam_id,
+            persona_name: summary.persona_name,
+            avatar: summary.avatar,
+            profile_url: summary.profile_url,
+            last_log_off: summary.last_log_off,
+            game_extra_info: summary.game_extra_info,
+            recent_games: Vec::new(),
+        })
+        .collect()
+}
+
+/// Merge player summaries with their `added_at` timestamps into follow entries.
+fn merge_follow_summaries(added_at: &HashMap<&str, i64>, summaries: Vec<PlayerSummary>) -> Vec<shared::Follow> {
+    summaries
+        .into_iter()
+        .map(|summary| shared::Follow {
+            added_at: added_at.get(summary.steam_id.as_str()).copied().unwrap_or_default(),
             persona_state: PersonaState::from_i32(summary.persona_state),
             steam_id: summary.steam_id,
             persona_name: summary.persona_name,
@@ -296,6 +407,40 @@ pub struct PlayerSummary {
     pub game_id: Option<String>,
     #[serde(rename = "gameextrainfo")]
     pub game_extra_info: Option<String>,
+}
+
+struct ResolveVanityUrl {
+    key: String,
+    vanity_url: String,
+}
+
+impl Endpoint for ResolveVanityUrl {
+    type Response = ResolveVanityUrlResponse;
+
+    fn url(&self) -> String {
+        format!("{BASE_URL}/ISteamUser/ResolveVanityURL/v0001/")
+    }
+
+    fn query(&self) -> Vec<(&'static str, String)> {
+        vec![("key", self.key.clone()), ("vanityurl", self.vanity_url.clone())]
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct ResolveVanityUrlResponse {
+    response: ResolveVanityUrlResult,
+}
+
+/// `steamid` is absent when `success != 1` (no match).
+#[derive(Debug, Deserialize)]
+struct ResolveVanityUrlResult {
+    success: i32,
+    #[serde(rename = "steamid")]
+    steam_id: Option<String>,
+}
+
+fn unix_now() -> i64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or_default()
 }
 
 struct GetHeroList {

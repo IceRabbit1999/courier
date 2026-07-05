@@ -4,7 +4,7 @@ use std::{
 };
 
 use egui::{Color32, CornerRadius, Sense, Vec2, vec2};
-use shared::{Friend, MatchDetail, MatchPlayer, MatchSummary};
+use shared::{Follow, MatchDetail, MatchPlayer, MatchSummary};
 
 use crate::{
     components::widgets,
@@ -29,9 +29,9 @@ pub enum MatchFilter {
 
 /// Signals the screen wants to send back to [`crate::app::App`].
 pub enum MatchAction {
-    /// Load the selected friend's stored matches (no network).
-    SelectFriend(String),
-    /// Fetch the selected friend's recent matches from OpenDota.
+    /// Load the selected player's stored matches (no network).
+    SelectPlayer(String),
+    /// Fetch the selected player's recent matches from OpenDota.
     FetchMatches(String),
     /// Open one match's full detail (loaded from the DB or fetched).
     OpenMatch(i64),
@@ -41,8 +41,8 @@ pub enum MatchAction {
 
 pub struct MatchScreen {
     filter: MatchFilter,
-    /// `(steam_id, persona_name)` for the friend picker.
-    friends: Vec<(String, String)>,
+    /// `(steam_id, persona_name)` for the player picker.
+    players: Vec<(String, String)>,
     selected: Option<String>,
     matches: Vec<MatchSummary>,
     detail: Option<MatchDetail>,
@@ -61,7 +61,7 @@ impl MatchScreen {
     pub fn new() -> Self {
         Self {
             filter: MatchFilter::All,
-            friends: Vec::new(),
+            players: Vec::new(),
             selected: None,
             matches: Vec::new(),
             detail: None,
@@ -75,15 +75,15 @@ impl MatchScreen {
         }
     }
 
-    /// Refresh the friend picker. Cheap no-op unless the set size changed, so it
+    /// Refresh the player picker. Cheap no-op unless the set size changed, so it
     /// can be called every frame from the route handler.
-    pub fn set_friends(&mut self, friends: &[Friend]) {
-        if self.friends.len() != friends.len() {
-            self.friends = friends.iter().map(|f| (f.steam_id.clone(), f.persona_name.clone())).collect();
+    pub fn set_players(&mut self, follows: &[Follow]) {
+        if self.players.len() != follows.len() {
+            self.players = follows.iter().map(|f| (f.steam_id.clone(), f.persona_name.clone())).collect();
         }
     }
 
-    /// Apply loaded/fetched matches, ignoring results for a friend the user has
+    /// Apply loaded/fetched matches, ignoring results for a player the user has
     /// since switched away from.
     pub fn set_matches(&mut self, steam_id: String, matches: Vec<MatchSummary>) {
         self.loading = false;
@@ -170,30 +170,30 @@ impl MatchScreen {
         });
         ui.add_space(spacing::MEDIUM);
 
-        if self.friends.is_empty() {
-            self.empty_state(ui, palette, &i18n::message("matches-no-friends"));
+        if self.players.is_empty() {
+            self.empty_state(ui, palette, &i18n::message("matches-no-players"));
             return action;
         }
 
         ui.horizontal(|ui| {
-            ui.label(egui::RichText::new(i18n::message("matches-select-friend")).size(font_size::BODY).color(palette.text_muted));
+            ui.label(egui::RichText::new(i18n::message("matches-select-player")).size(font_size::BODY).color(palette.text_muted));
             ui.add_space(spacing::SMALL);
             let selected_label = self
                 .selected
                 .as_ref()
-                .and_then(|id| self.friends.iter().find(|(sid, _)| sid == id))
+                .and_then(|id| self.players.iter().find(|(sid, _)| sid == id))
                 .map(|(_, name)| name.clone())
-                .unwrap_or_else(|| i18n::message("matches-pick-friend"));
+                .unwrap_or_else(|| i18n::message("matches-pick-player"));
 
-            egui::ComboBox::from_id_salt("matches_friend_picker")
+            egui::ComboBox::from_id_salt("matches_player_picker")
                 .selected_text(selected_label)
                 .width(220.0)
                 .show_ui(ui, |ui| {
-                    for (steam_id, name) in &self.friends {
+                    for (steam_id, name) in &self.players {
                         let selected = self.selected.as_deref() == Some(steam_id.as_str());
                         if ui.selectable_label(selected, name).clicked() && !selected {
                             self.selected = Some(steam_id.clone());
-                            action = Some(MatchAction::SelectFriend(steam_id.clone()));
+                            action = Some(MatchAction::SelectPlayer(steam_id.clone()));
                         }
                     }
                 });
@@ -211,7 +211,7 @@ impl MatchScreen {
         ui.add_space(spacing::LARGE);
 
         if self.selected.is_none() {
-            self.empty_state(ui, palette, &i18n::message("matches-pick-friend"));
+            self.empty_state(ui, palette, &i18n::message("matches-pick-player"));
             return action;
         }
 

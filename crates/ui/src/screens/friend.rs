@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashSet};
 
-use shared::{Friend, PersonaState};
+use shared::Friend;
 
 use crate::{
     components::{search, widgets},
@@ -237,7 +237,7 @@ fn group_header(ui: &mut egui::Ui, palette: &ColorPalette, label: &str, count: u
         let t = ui
             .ctx()
             .animate_bool_with_time(egui::Id::new(("group_caret", label)), !collapsed, 1.0 / animation::hover_speed());
-        if caret(ui, palette.text, t).clicked() {
+        if widgets::caret(ui, palette.text, t).clicked() {
             clicked = true;
         }
         ui.add_space(spacing::TINY);
@@ -254,22 +254,6 @@ fn group_header(ui: &mut egui::Ui, palette: &ColorPalette, label: &str, count: u
     });
     ui.add_space(spacing::SMALL);
     clicked
-}
-
-/// A chevron drawn by hand so it tweens smoothly from pointing-right (`t = 0`,
-/// collapsed) to pointing-down (`t = 1`, expanded) instead of snapping between
-/// two glyphs.
-fn caret(ui: &mut egui::Ui, color: egui::Color32, t: f32) -> egui::Response {
-    let size = font_size::LARGE;
-    let (rect, response) = ui.allocate_exact_size(egui::Vec2::splat(size), egui::Sense::click());
-    let center = rect.center();
-    let r = size * 0.22;
-    let (sin, cos) = (t * std::f32::consts::FRAC_PI_2).sin_cos();
-    let rotate = |x: f32, y: f32| egui::pos2(center.x + x * cos - y * sin, center.y + x * sin + y * cos);
-    let stroke = egui::Stroke::new(1.8_f32, color);
-    ui.painter().line_segment([rotate(-r, -r), rotate(r, 0.0)], stroke);
-    ui.painter().line_segment([rotate(r, 0.0), rotate(-r, r)], stroke);
-    response.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
 
 /// One watch-list row. Returns whether the recently-played-games toggle was
@@ -303,7 +287,11 @@ fn friend_row(ui: &mut egui::Ui, friend: &Friend, palette: &ColorPalette, load_a
         ui.vertical(|ui| {
             ui.label(egui::RichText::new(&friend.persona_name).size(font_size::MEDIUM).color(palette.text));
             let status_color = if friend.persona_state.is_online() { palette.text_secondary } else { palette.text_muted };
-            ui.label(egui::RichText::new(persona_state_label(friend.persona_state)).size(font_size::SMALL).color(status_color));
+            ui.label(
+                egui::RichText::new(widgets::persona_state_label(friend.persona_state))
+                    .size(font_size::SMALL)
+                    .color(status_color),
+            );
         });
 
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -312,7 +300,7 @@ fn friend_row(ui: &mut egui::Ui, friend: &Friend, palette: &ColorPalette, load_a
                 let t = ui
                     .ctx()
                     .animate_bool_with_time(egui::Id::new(("friend_caret", &friend.steam_id)), expanded, 1.0 / animation::hover_speed());
-                if caret(ui, palette.text_muted, t).clicked() {
+                if widgets::caret(ui, palette.text_muted, t).clicked() {
                     toggled = true;
                 }
                 ui.add_space(spacing::TINY);
@@ -333,77 +321,10 @@ fn friend_row(ui: &mut egui::Ui, friend: &Friend, palette: &ColorPalette, load_a
     }
 
     if expanded && has_games {
-        recent_games_panel(ui, friend, palette, limit);
+        widgets::recent_games_panel(ui, &friend.recent_games, palette, limit);
     }
 
     toggled
-}
-
-/// The expanded panel beneath a row: the friend's top `limit` recently played
-/// games (by two-week playtime) with their two-week and lifetime hours.
-fn recent_games_panel(ui: &mut egui::Ui, friend: &Friend, palette: &ColorPalette, limit: usize) {
-    let mut games = friend.recent_games.iter().collect::<Vec<_>>();
-    games.sort_by_key(|g| std::cmp::Reverse(g.playtime_2weeks));
-
-    egui::Frame::NONE
-        .fill(palette.surface_secondary)
-        .corner_radius(egui::CornerRadius::same(radius::MEDIUM))
-        .inner_margin(spacing::MEDIUM)
-        .outer_margin(egui::Margin {
-            left: spacing::LARGE as i8,
-            top: spacing::TINY as i8,
-            bottom: spacing::SMALL as i8,
-            ..Default::default()
-        })
-        .show(ui, |ui| {
-            ui.set_width(ui.available_width());
-            ui.label(
-                egui::RichText::new(i18n::message("friends-recent-games"))
-                    .size(font_size::SMALL)
-                    .strong()
-                    .color(palette.text_secondary),
-            );
-            ui.add_space(spacing::TINY);
-
-            for game in games.into_iter().take(limit.max(1)) {
-                ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(&game.name).size(font_size::BODY).color(palette.text));
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        let total = format!("{} {}", i18n::message("friends-playtime-total"), format_playtime(game.playtime_forever));
-                        ui.label(egui::RichText::new(total).size(font_size::SMALL).color(palette.text_muted));
-                        ui.add_space(spacing::SMALL);
-                        let two_weeks = format!("{} {}", i18n::message("friends-playtime-2weeks"), format_playtime(game.playtime_2weeks));
-                        ui.label(egui::RichText::new(two_weeks).size(font_size::SMALL).color(palette.primary));
-                    });
-                });
-            }
-        });
-}
-
-/// Format a Steam playtime (minutes) as a compact `Xh Ym` / `Xh` / `Ym` string.
-fn format_playtime(minutes: i64) -> String {
-    if minutes <= 0 {
-        return "0m".to_owned();
-    }
-    let (hours, mins) = (minutes / 60, minutes % 60);
-    match (hours, mins) {
-        (0, m) => format!("{m}m"),
-        (h, 0) => format!("{h}h"),
-        (h, m) => format!("{h}h {m}m"),
-    }
-}
-
-fn persona_state_label(state: PersonaState) -> String {
-    let key = match state {
-        PersonaState::Offline => "friends-status-offline",
-        PersonaState::Online => "friends-status-online",
-        PersonaState::Busy => "friends-status-busy",
-        PersonaState::Away => "friends-status-away",
-        PersonaState::Snooze => "friends-status-snooze",
-        PersonaState::LookingToTrade => "friends-status-looking-to-trade",
-        PersonaState::LookingToPlay => "friends-status-looking-to-play",
-    };
-    i18n::message(key)
 }
 
 impl Default for FriendScreen {

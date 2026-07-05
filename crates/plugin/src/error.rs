@@ -44,6 +44,13 @@ pub enum Error {
         #[snafu(implicit)]
         location: Location,
     },
+    #[snafu(display("Could not resolve a Steam profile for '{input}'"))]
+    #[snafu(context(name(UnresolvedProfileSnafu)))]
+    UnresolvedProfile {
+        input: String,
+        #[snafu(implicit)]
+        location: Location,
+    },
 }
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;

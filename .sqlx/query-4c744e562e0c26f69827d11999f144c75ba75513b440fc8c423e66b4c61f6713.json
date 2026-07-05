@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT OR IGNORE INTO follow_recent_games (steam_id, app_id, name, playtime_2weeks, playtime_forever, img_icon_url)\n             SELECT steam_id, app_id, name, playtime_2weeks, playtime_forever, img_icon_url FROM friend_recent_games",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "4c744e562e0c26f69827d11999f144c75ba75513b440fc8c423e66b4c61f6713"
+}

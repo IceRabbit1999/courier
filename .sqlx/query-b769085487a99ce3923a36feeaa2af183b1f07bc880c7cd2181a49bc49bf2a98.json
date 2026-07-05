@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT OR IGNORE INTO follows (steam_id, added_at, persona_name, avatar, profile_url, persona_state, last_log_off, game_extra_info, updated_at)\n             SELECT steam_id, ?, persona_name, avatar, profile_url, persona_state, last_log_off, game_extra_info, updated_at FROM friends",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "b769085487a99ce3923a36feeaa2af183b1f07bc880c7cd2181a49bc49bf2a98"
+}

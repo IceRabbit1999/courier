@@ -1,0 +1,110 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT steam_id AS \"steam_id!\", added_at, persona_name, avatar, profile_url, persona_state, last_log_off, game_extra_info\n               FROM follows ORDER BY (persona_state != 0) DESC, persona_name COLLATE NOCASE ASC",
+  "describe": {
+    "columns": [
+      {
+        "name": "steam_id!",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "follows",
+            "name": "steam_id"
+          }
+        }
+      },
+      {
+        "name": "added_at",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "follows",
+            "name": "added_at"
+          }
+        }
+      },
+      {
+        "name": "persona_name",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "follows",
+            "name": "persona_name"
+          }
+        }
+      },
+      {
+        "name": "avatar",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "follows",
+            "name": "avatar"
+          }
+        }
+      },
+      {
+        "name": "profile_url",
+        "ordinal": 4,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "follows",
+            "name": "profile_url"
+          }
+        }
+      },
+      {
+        "name": "persona_state",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "follows",
+            "name": "persona_state"
+          }
+        }
+      },
+      {
+        "name": "last_log_off",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "follows",
+            "name": "last_log_off"
+          }
+        }
+      },
+      {
+        "name": "game_extra_info",
+        "ordinal": 7,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "follows",
+            "name": "game_extra_info"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "6f4ee765ca1eda10c6250e9e9636609edeaf8d4391b20c4b1f376cf2e8ffb5b6"
+}

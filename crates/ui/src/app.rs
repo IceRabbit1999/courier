@@ -16,6 +16,7 @@ pub enum Route {
     #[default]
     Dashboard,
     Friends,
+    Follows,
     Matches,
     Heroes,
     Items,
@@ -27,6 +28,7 @@ impl Route {
         match self {
             Route::Dashboard => i18n::message("nav-dashboard"),
             Route::Friends => i18n::message("nav-friends"),
+            Route::Follows => i18n::message("nav-follows"),
             Route::Matches => i18n::message("nav-matches"),
             Route::Heroes => i18n::message("nav-heroes"),
             Route::Items => i18n::message("nav-items"),
@@ -35,11 +37,19 @@ impl Route {
     }
 
     pub fn all() -> &'static [Route] {
-        &[Route::Dashboard, Route::Friends, Route::Matches, Route::Heroes, Route::Items, Route::Settings]
+        &[
+            Route::Dashboard,
+            Route::Friends,
+            Route::Follows,
+            Route::Matches,
+            Route::Heroes,
+            Route::Items,
+            Route::Settings,
+        ]
     }
 
     pub fn main_routes() -> &'static [Route] {
-        &[Route::Dashboard, Route::Friends, Route::Matches, Route::Heroes, Route::Items]
+        &[Route::Dashboard, Route::Friends, Route::Follows, Route::Matches, Route::Heroes, Route::Items]
     }
 }
 
@@ -55,6 +65,7 @@ struct MainState {
 
     home: screens::dashboard::DashboardScreen,
     friends: screens::friend::FriendScreen,
+    follows: screens::follows::FollowScreen,
     matches: screens::matches::MatchScreen,
     heroes: screens::hero::HeroScreen,
     items: screens::item::ItemScreen,
@@ -75,6 +86,7 @@ impl MainState {
             _bridge: bridge,
             home: screens::dashboard::DashboardScreen::new(),
             friends: screens::friend::FriendScreen::new(),
+            follows: screens::follows::FollowScreen::new(),
             matches: screens::matches::MatchScreen::new(),
             heroes: screens::hero::HeroScreen::new(),
             items: screens::item::ItemScreen::new(),
@@ -151,6 +163,7 @@ impl App {
         } else {
             // Populate the watch list from the last-synced data without a network call.
             Self::spawn_load_friends_from_db(&bridge, &storage);
+            Self::spawn_load_follows_from_db(&bridge, &storage);
             AppState::Main(Box::new(MainState::new(bridge.clone())))
         };
 
@@ -215,6 +228,98 @@ impl App {
             let friends = client.steam(key).refresh_statuses(&friends).await.whatever_context("Failed to refresh friend statuses")?;
             storage.replace_friends(&friends).await.whatever_context("Failed to save friends")?;
             Ok(TaskResult::FriendsLoaded(friends))
+        });
+    }
+
+    /// Load the stored follow list off the UI thread (no network).
+    fn spawn_load_follows_from_db(bridge: &AsyncBridge, storage: &storage::Storage) {
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            let follows = storage.list_follows().await.whatever_context("Failed to load follows from storage")?;
+            Ok(TaskResult::FollowsLoaded(follows))
+        });
+    }
+
+    /// Resolve `input` (a Steam64 id or profile URL) and add it to the follow list.
+    fn spawn_add_follow(bridge: &AsyncBridge, client: &plugin::Client, storage: &storage::Storage, input: String) {
+        let key = configs::read().secrets.steam_web_api_key.clone();
+        let Some(key) = key else {
+            bridge.toasts().error(i18n::message("follows-error-title"), i18n::message("follows-error-credentials"));
+            return;
+        };
+
+        let client = client.clone();
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            let follow = client.steam(key).resolve_and_summarize(&input).await.whatever_context("Failed to resolve player")?;
+            storage.upsert_follows(&[follow]).await.whatever_context("Failed to save follow")?;
+            let follows = storage.list_follows().await.whatever_context("Failed to load follows from storage")?;
+            Ok(TaskResult::FollowsLoaded(follows))
+        });
+    }
+
+    /// Stop following one player.
+    fn spawn_remove_follow(bridge: &AsyncBridge, storage: &storage::Storage, steam_id: String) {
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            storage.remove_follow(&steam_id).await.whatever_context("Failed to remove follow")?;
+            let follows = storage.list_follows().await.whatever_context("Failed to load follows from storage")?;
+            Ok(TaskResult::FollowsLoaded(follows))
+        });
+    }
+
+    /// Copy every current friend into the follow list.
+    fn spawn_add_all_friends_to_follows(bridge: &AsyncBridge, storage: &storage::Storage) {
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            storage.add_all_friends_to_follows().await.whatever_context("Failed to add friends to follows")?;
+            let follows = storage.list_follows().await.whatever_context("Failed to load follows from storage")?;
+            Ok(TaskResult::FollowsLoaded(follows))
+        });
+    }
+
+    /// Follow the chosen subset of the friend list.
+    fn spawn_add_selected_friends_to_follows(bridge: &AsyncBridge, storage: &storage::Storage, steam_ids: Vec<String>) {
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            storage
+                .add_friends_to_follows(&steam_ids)
+                .await
+                .whatever_context("Failed to add selected friends to follows")?;
+            let follows = storage.list_follows().await.whatever_context("Failed to load follows from storage")?;
+            Ok(TaskResult::FollowsLoaded(follows))
+        });
+    }
+
+    /// Remove every current friend from the follow list.
+    fn spawn_remove_all_friends_from_follows(bridge: &AsyncBridge, storage: &storage::Storage) {
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            storage.remove_all_friends_from_follows().await.whatever_context("Failed to remove friends from follows")?;
+            let follows = storage.list_follows().await.whatever_context("Failed to load follows from storage")?;
+            Ok(TaskResult::FollowsLoaded(follows))
+        });
+    }
+
+    /// Refresh the online state and current game of the already-known `follows`
+    /// (player summaries only), then store and hand it back.
+    fn spawn_refresh_follows(bridge: &AsyncBridge, client: &plugin::Client, storage: &storage::Storage, follows: Vec<shared::Follow>) {
+        let key = configs::read().secrets.steam_web_api_key.clone();
+        let Some(key) = key else {
+            bridge.toasts().error(i18n::message("follows-error-title"), i18n::message("follows-error-credentials"));
+            return;
+        };
+
+        let client = client.clone();
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            let follows = client
+                .steam(key)
+                .refresh_follow_statuses(&follows)
+                .await
+                .whatever_context("Failed to refresh follow statuses")?;
+            storage.upsert_follows(&follows).await.whatever_context("Failed to save follows")?;
+            Ok(TaskResult::FollowsLoaded(follows))
         });
     }
 
@@ -370,6 +475,7 @@ impl App {
 
         match result {
             TaskResult::FriendsLoaded(friends) => main.friends.set_friends(friends),
+            TaskResult::FollowsLoaded(follows) => main.follows.set_follows(follows),
             TaskResult::StaticDataSynced { heroes, items } => {
                 main.settings.set_syncing(false);
                 let summary = format!("{heroes} {} · {items} {}", i18n::message("nav-heroes"), i18n::message("nav-items"));
@@ -387,6 +493,7 @@ impl App {
                 // A failure clears whichever in-flight indicator was set; the
                 // unaffected ones are already idle, so resetting them all is harmless.
                 main.friends.set_loading(false);
+                main.follows.set_loading(false);
                 main.matches.set_loading(false);
                 main.settings.set_syncing(false);
                 main.toasts.push_error(i18n::message("common-error"), error);
@@ -537,14 +644,42 @@ impl eframe::App for App {
                             }
                             Vec::new()
                         }
+                        Route::Follows => {
+                            main.follows.set_friends(main.friends.friends());
+                            match main.follows.show(ui) {
+                                Some(screens::follows::FollowAction::AddPlayer(input)) => {
+                                    main.follows.set_loading(true);
+                                    Self::spawn_add_follow(&self.bridge, &self.client, &self.storage, input);
+                                }
+                                Some(screens::follows::FollowAction::RemovePlayer(steam_id)) => {
+                                    Self::spawn_remove_follow(&self.bridge, &self.storage, steam_id);
+                                }
+                                Some(screens::follows::FollowAction::AddAllFriends) => {
+                                    Self::spawn_add_all_friends_to_follows(&self.bridge, &self.storage);
+                                }
+                                Some(screens::follows::FollowAction::RemoveAllFriends) => {
+                                    Self::spawn_remove_all_friends_from_follows(&self.bridge, &self.storage);
+                                }
+                                Some(screens::follows::FollowAction::RefreshStatuses) => {
+                                    let follows = main.follows.follows().to_vec();
+                                    main.follows.set_loading(true);
+                                    Self::spawn_refresh_follows(&self.bridge, &self.client, &self.storage, follows);
+                                }
+                                Some(screens::follows::FollowAction::AddSelectedFriends(steam_ids)) => {
+                                    Self::spawn_add_selected_friends_to_follows(&self.bridge, &self.storage, steam_ids);
+                                }
+                                None => {}
+                            }
+                            Vec::new()
+                        }
                         Route::Matches => {
-                            main.matches.set_friends(main.friends.friends());
+                            main.matches.set_players(main.follows.follows());
                             if main.matches.needs_names() {
                                 main.matches.mark_names_requested();
                                 Self::spawn_load_match_names(&self.bridge, &self.storage);
                             }
                             match main.matches.show(ui) {
-                                Some(screens::matches::MatchAction::SelectFriend(steam_id)) => {
+                                Some(screens::matches::MatchAction::SelectPlayer(steam_id)) => {
                                     main.matches.set_loading(true);
                                     Self::spawn_load_matches_from_db(&self.bridge, &self.storage, steam_id);
                                 }

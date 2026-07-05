@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO follows (steam_id, added_at, persona_name, avatar, profile_url, persona_state, last_log_off, game_extra_info, updated_at)\n                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)\n                 ON CONFLICT(steam_id) DO UPDATE SET\n                    persona_name = excluded.persona_name, avatar = excluded.avatar, profile_url = excluded.profile_url,\n                    persona_state = excluded.persona_state, last_log_off = excluded.last_log_off,\n                    game_extra_info = excluded.game_extra_info, updated_at = excluded.updated_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 9
+    },
+    "nullable": []
+  },
+  "hash": "33fb99570df4f37b15a7a44f488db8e723f7e314a157093a849eb72676ef5847"
+}

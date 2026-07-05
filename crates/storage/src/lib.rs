@@ -6,7 +6,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use shared::{Friend, HeroEntry, ItemEntry, MatchDetail, MatchPlayer, MatchSummary, PersonaState, RecentGame};
+use shared::{Follow, Friend, HeroEntry, ItemEntry, MatchDetail, MatchPlayer, MatchSummary, PersonaState, RecentGame};
 use snafu::ResultExt;
 use sqlx::{
     SqlitePool,
@@ -218,6 +218,192 @@ impl Storage {
                 game_extra_info: row.game_extra_info,
             })
             .collect())
+    }
+
+    /// Recently played games for every followed player, keyed by steam id and
+    /// ordered by two-week playtime (longest first).
+    async fn recent_games_by_follow(&self) -> Result<HashMap<String, Vec<RecentGame>>> {
+        let rows = sqlx::query!(
+            r#"SELECT steam_id AS "steam_id!", app_id, name, playtime_2weeks, playtime_forever, img_icon_url
+             FROM follow_recent_games ORDER BY playtime_2weeks DESC"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .context(QuerySnafu)?;
+
+        let mut by_follow: HashMap<String, Vec<RecentGame>> = HashMap::new();
+        for row in rows {
+            by_follow.entry(row.steam_id).or_default().push(RecentGame {
+                app_id: row.app_id,
+                name: row.name,
+                playtime_2weeks: row.playtime_2weeks,
+                playtime_forever: row.playtime_forever,
+                img_icon_url: row.img_icon_url,
+            });
+        }
+        Ok(by_follow)
+    }
+
+    /// The stored follow list, online players first then alphabetical.
+    pub async fn list_follows(&self) -> Result<Vec<Follow>> {
+        let rows = sqlx::query!(
+            r#"SELECT steam_id AS "steam_id!", added_at, persona_name, avatar, profile_url, persona_state, last_log_off, game_extra_info
+               FROM follows ORDER BY (persona_state != 0) DESC, persona_name COLLATE NOCASE ASC"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .context(QuerySnafu)?;
+
+        let mut recent_games = self.recent_games_by_follow().await?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| Follow {
+                recent_games: recent_games.remove(&row.steam_id).unwrap_or_default(),
+                steam_id: row.steam_id,
+                added_at: row.added_at,
+                persona_name: row.persona_name,
+                avatar: row.avatar,
+                profile_url: row.profile_url,
+                persona_state: PersonaState::from_i32(row.persona_state as i32),
+                last_log_off: row.last_log_off,
+                game_extra_info: row.game_extra_info,
+            })
+            .collect())
+    }
+
+    /// Upsert `follows` rows: inserts new players, and for existing ones updates
+    /// their presence/status fields without touching `added_at`. Each row's
+    /// recent games are replaced wholesale.
+    pub async fn upsert_follows(&self, follows: &[Follow]) -> Result<()> {
+        let now = unix_now();
+        let mut tx = self.pool.begin().await.context(QuerySnafu)?;
+        for follow in follows {
+            sqlx::query!(
+                r#"INSERT INTO follows (steam_id, added_at, persona_name, avatar, profile_url, persona_state, last_log_off, game_extra_info, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 ON CONFLICT(steam_id) DO UPDATE SET
+                    persona_name = excluded.persona_name, avatar = excluded.avatar, profile_url = excluded.profile_url,
+                    persona_state = excluded.persona_state, last_log_off = excluded.last_log_off,
+                    game_extra_info = excluded.game_extra_info, updated_at = excluded.updated_at"#,
+                follow.steam_id,
+                follow.added_at,
+                follow.persona_name,
+                follow.avatar,
+                follow.profile_url,
+                follow.persona_state as i32,
+                follow.last_log_off,
+                follow.game_extra_info,
+                now,
+            )
+            .execute(&mut *tx)
+            .await
+            .context(QuerySnafu)?;
+
+            sqlx::query!("DELETE FROM follow_recent_games WHERE steam_id = ?", follow.steam_id)
+                .execute(&mut *tx)
+                .await
+                .context(QuerySnafu)?;
+            for game in &follow.recent_games {
+                sqlx::query!(
+                    r#"INSERT INTO follow_recent_games (steam_id, app_id, name, playtime_2weeks, playtime_forever, img_icon_url)
+                     VALUES (?, ?, ?, ?, ?, ?)"#,
+                    follow.steam_id,
+                    game.app_id,
+                    game.name,
+                    game.playtime_2weeks,
+                    game.playtime_forever,
+                    game.img_icon_url,
+                )
+                .execute(&mut *tx)
+                .await
+                .context(QuerySnafu)?;
+            }
+        }
+        tx.commit().await.context(QuerySnafu)?;
+        Ok(())
+    }
+
+    /// Stop following one player.
+    pub async fn remove_follow(&self, steam_id: &str) -> Result<()> {
+        let mut tx = self.pool.begin().await.context(QuerySnafu)?;
+        sqlx::query!("DELETE FROM follow_recent_games WHERE steam_id = ?", steam_id)
+            .execute(&mut *tx)
+            .await
+            .context(QuerySnafu)?;
+        sqlx::query!("DELETE FROM follows WHERE steam_id = ?", steam_id)
+            .execute(&mut *tx)
+            .await
+            .context(QuerySnafu)?;
+        tx.commit().await.context(QuerySnafu)?;
+        Ok(())
+    }
+
+    /// Copy every current friend into `follows` (a no-op for ones already followed).
+    pub async fn add_all_friends_to_follows(&self) -> Result<()> {
+        let now = unix_now();
+        let mut tx = self.pool.begin().await.context(QuerySnafu)?;
+        sqlx::query!(
+            r#"INSERT OR IGNORE INTO follows (steam_id, added_at, persona_name, avatar, profile_url, persona_state, last_log_off, game_extra_info, updated_at)
+             SELECT steam_id, ?, persona_name, avatar, profile_url, persona_state, last_log_off, game_extra_info, updated_at FROM friends"#,
+            now,
+        )
+        .execute(&mut *tx)
+        .await
+        .context(QuerySnafu)?;
+        sqlx::query!(
+            r#"INSERT OR IGNORE INTO follow_recent_games (steam_id, app_id, name, playtime_2weeks, playtime_forever, img_icon_url)
+             SELECT steam_id, app_id, name, playtime_2weeks, playtime_forever, img_icon_url FROM friend_recent_games"#,
+        )
+        .execute(&mut *tx)
+        .await
+        .context(QuerySnafu)?;
+        tx.commit().await.context(QuerySnafu)?;
+        Ok(())
+    }
+
+    /// Copy specific friends (by `steam_id`) into `follows` (a no-op for ones
+    /// already followed or no longer a friend).
+    pub async fn add_friends_to_follows(&self, steam_ids: &[String]) -> Result<()> {
+        let now = unix_now();
+        let mut tx = self.pool.begin().await.context(QuerySnafu)?;
+        for steam_id in steam_ids {
+            sqlx::query!(
+                r#"INSERT OR IGNORE INTO follows (steam_id, added_at, persona_name, avatar, profile_url, persona_state, last_log_off, game_extra_info, updated_at)
+                 SELECT steam_id, ?, persona_name, avatar, profile_url, persona_state, last_log_off, game_extra_info, updated_at FROM friends WHERE steam_id = ?"#,
+                now,
+                steam_id,
+            )
+            .execute(&mut *tx)
+            .await
+            .context(QuerySnafu)?;
+            sqlx::query!(
+                r#"INSERT OR IGNORE INTO follow_recent_games (steam_id, app_id, name, playtime_2weeks, playtime_forever, img_icon_url)
+                 SELECT steam_id, app_id, name, playtime_2weeks, playtime_forever, img_icon_url FROM friend_recent_games WHERE steam_id = ?"#,
+                steam_id,
+            )
+            .execute(&mut *tx)
+            .await
+            .context(QuerySnafu)?;
+        }
+        tx.commit().await.context(QuerySnafu)?;
+        Ok(())
+    }
+
+    /// Remove every current friend from `follows` (players followed independently
+    /// of any friendship are untouched).
+    pub async fn remove_all_friends_from_follows(&self) -> Result<()> {
+        let mut tx = self.pool.begin().await.context(QuerySnafu)?;
+        sqlx::query!("DELETE FROM follow_recent_games WHERE steam_id IN (SELECT steam_id FROM friends)")
+            .execute(&mut *tx)
+            .await
+            .context(QuerySnafu)?;
+        sqlx::query!("DELETE FROM follows WHERE steam_id IN (SELECT steam_id FROM friends)")
+            .execute(&mut *tx)
+            .await
+            .context(QuerySnafu)?;
+        tx.commit().await.context(QuerySnafu)?;
+        Ok(())
     }
 
     /// Replace the stored match summaries for one friend with `summaries`.

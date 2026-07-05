@@ -7,6 +7,7 @@ app-tagline = 追踪你的比赛
 # 导航
 nav-dashboard = 仪表盘
 nav-friends = 好友
+nav-follows = 关注
 nav-matches = 比赛
 nav-heroes = 英雄
 nav-items = 物品
@@ -22,7 +23,7 @@ dashboard-no-players = 暂未追踪任何玩家
 dashboard-add-player = 添加玩家
 
 # 好友/关注列表
-friends-title = 关注列表
+friends-title = 好友列表
 friends-search-placeholder = 通过ID或名称搜索玩家...
 friends-watching = 关注中
 friends-no-results = 未找到结果
@@ -30,6 +31,36 @@ friends-add = 添加到关注列表
 friends-remove = 移除
 friends-empty = 你的关注列表为空
 friends-empty-hint = 搜索玩家以开始追踪他们的比赛
+
+# 关注
+follows-title = 关注
+follows-search-placeholder = 通过ID或名称搜索你关注的玩家...
+follows-no-results = 未找到结果
+follows-empty = 你还未关注任何人
+follows-empty-hint = 在上方粘贴 Steam64 ID 或个人资料链接以开始追踪玩家
+follows-input-placeholder = Steam64 ID 或个人资料链接...
+follows-add = 添加
+follows-add-all-friends = 添加所有好友
+follows-remove-all-friends = 移除所有好友
+follows-refresh-status = 刷新状态
+follows-sort = 排序
+follows-sort-status = 状态
+follows-sort-game = 当前游戏
+follows-sort-name = 名称
+follows-online = 在线
+follows-offline = 离线
+follows-not-in-game = 未在游戏中
+follows-error-title = 无法更新关注列表
+follows-error-credentials = 请先在设置中填写 Steam Web API 密钥。
+follows-select-from-friends = 从好友中选择
+follows-picker-title = 选择要关注的好友
+follows-picker-search-placeholder = 搜索你的好友...
+follows-picker-select-all = 全选
+follows-picker-select-none = 全不选
+follows-picker-empty-no-friends = 请先在好友页同步你的好友
+follows-picker-empty-all-followed = 你已关注所有好友
+follows-picker-confirm = 关注所选
+follows-picker-cancel = 取消
 
 # 比赛
 matches-title = 比赛历史
@@ -39,9 +70,9 @@ matches-filter-losses = 失败
 matches-loading = 加载比赛中...
 matches-empty = 未找到比赛
 matches-view-details = 查看详情
-matches-select-friend = 好友
-matches-pick-friend = 选择一位好友
-matches-no-friends = 请先同步好友以追踪他们的比赛
+matches-select-player = 玩家
+matches-pick-player = 选择一位玩家
+matches-no-players = 请先关注玩家以追踪他们的比赛
 matches-fetch = 获取
 matches-fetching = 获取中...
 matches-back = 返回

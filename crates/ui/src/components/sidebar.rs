@@ -165,6 +165,7 @@ fn get_route_icon(route: Route) -> &'static str {
     match route {
         Route::Dashboard => nav::DASHBOARD,
         Route::Friends => nav::FRIENDS,
+        Route::Follows => nav::FOLLOWS,
         Route::Matches => nav::MATCHES,
         Route::Heroes => nav::HEROES,
         Route::Items => nav::ITEMS,

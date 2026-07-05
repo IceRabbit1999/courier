@@ -1,4 +1,5 @@
 pub mod dashboard;
+pub mod follows;
 pub mod friend;
 pub mod hero;
 pub mod item;

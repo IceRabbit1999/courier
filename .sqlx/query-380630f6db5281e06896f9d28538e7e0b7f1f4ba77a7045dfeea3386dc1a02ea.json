@@ -1,0 +1,86 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT steam_id AS \"steam_id!\", app_id, name, playtime_2weeks, playtime_forever, img_icon_url\n             FROM follow_recent_games ORDER BY playtime_2weeks DESC",
+  "describe": {
+    "columns": [
+      {
+        "name": "steam_id!",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "follow_recent_games",
+            "name": "steam_id"
+          }
+        }
+      },
+      {
+        "name": "app_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "follow_recent_games",
+            "name": "app_id"
+          }
+        }
+      },
+      {
+        "name": "name",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "follow_recent_games",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "name": "playtime_2weeks",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "follow_recent_games",
+            "name": "playtime_2weeks"
+          }
+        }
+      },
+      {
+        "name": "playtime_forever",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "follow_recent_games",
+            "name": "playtime_forever"
+          }
+        }
+      },
+      {
+        "name": "img_icon_url",
+        "ordinal": 5,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "follow_recent_games",
+            "name": "img_icon_url"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "380630f6db5281e06896f9d28538e7e0b7f1f4ba77a7045dfeea3386dc1a02ea"
+}

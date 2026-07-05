@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO follow_recent_games (steam_id, app_id, name, playtime_2weeks, playtime_forever, img_icon_url)\n                     VALUES (?, ?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": []
+  },
+  "hash": "f33c1cc350f2bcc516f933b1fb234d0e00173546675f896d4c05d86b9b40a81a"
+}

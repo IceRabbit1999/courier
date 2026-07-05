@@ -13,6 +13,8 @@ use crate::components::toast::ToastSender;
 pub enum TaskResult {
     /// The friend list, loaded from the DB on startup or refreshed from Steam.
     FriendsLoaded(Vec<shared::Friend>),
+    /// The follow list, loaded from the DB or updated by an add/remove/refresh.
+    FollowsLoaded(Vec<shared::Follow>),
     /// Static reference data (heroes/items) was synced; carries the row counts.
     StaticDataSynced { heroes: i64, items: i64 },
     /// A friend's match summaries, loaded from the DB or fetched from OpenDota.

@@ -7,6 +7,7 @@ app-tagline = Track your matches
 # Navigation
 nav-dashboard = Dashboard
 nav-friends = Friends
+nav-follows = Follows
 nav-matches = Matches
 nav-heroes = Heroes
 nav-items = Items
@@ -22,7 +23,7 @@ dashboard-no-players = No players tracked yet
 dashboard-add-player = Add Player
 
 # Friends/Watch List
-friends-title = Watch List
+friends-title = Friends
 friends-search-placeholder = Search players by ID or name...
 friends-watching = Watching
 friends-no-results = No results found
@@ -30,6 +31,36 @@ friends-add = Add to Watch List
 friends-remove = Remove
 friends-empty = Your watch list is empty
 friends-empty-hint = Search for players to start tracking their matches
+
+# Follows
+follows-title = Follows
+follows-search-placeholder = Search your follows by ID or name...
+follows-no-results = No results found
+follows-empty = You aren't following anyone yet
+follows-empty-hint = Paste a Steam64 id or profile URL above to start tracking a player
+follows-input-placeholder = Steam64 id or profile URL...
+follows-add = Add
+follows-add-all-friends = Add All Friends
+follows-remove-all-friends = Remove All Friends
+follows-refresh-status = Refresh status
+follows-sort = Sort
+follows-sort-status = Status
+follows-sort-game = Current game
+follows-sort-name = Name
+follows-online = Online
+follows-offline = Offline
+follows-not-in-game = Not in a game
+follows-error-title = Could not update follows
+follows-error-credentials = Set your Steam Web API key in Settings first.
+follows-select-from-friends = Select from Friends
+follows-picker-title = Select Friends to Follow
+follows-picker-search-placeholder = Search your friends...
+follows-picker-select-all = Select All
+follows-picker-select-none = Select None
+follows-picker-empty-no-friends = Sync your friends first on the Friends tab
+follows-picker-empty-all-followed = You're already following all your friends
+follows-picker-confirm = Follow Selected
+follows-picker-cancel = Cancel
 
 # Matches
 matches-title = Match History
@@ -39,9 +70,9 @@ matches-filter-losses = Losses
 matches-loading = Loading matches...
 matches-empty = No matches found
 matches-view-details = View Details
-matches-select-friend = Friend
-matches-pick-friend = Select a friend
-matches-no-friends = Sync your friends first to track their matches
+matches-select-player = Player
+matches-pick-player = Select a player
+matches-no-players = Follow players first to track their matches
 matches-fetch = Fetch
 matches-fetching = Fetching...
 matches-back = Back

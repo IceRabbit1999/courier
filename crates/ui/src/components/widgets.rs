@@ -1,6 +1,7 @@
 use egui::{Color32, CornerRadius, Margin, Stroke, UiBuilder, Vec2};
+use shared::{PersonaState, RecentGame};
 
-use crate::theme::{animation, colors, font_size, radius, spacing};
+use crate::theme::{ColorPalette, animation, colors, font_size, radius, spacing};
 
 /// Upper bound on content width so screens stay readable on wide windows
 /// instead of stretching edge to edge.
@@ -197,4 +198,87 @@ pub fn presence_dot(ui: &mut egui::Ui, color: Color32, pulse: bool) {
     }
 
     ui.painter().circle_filled(center, size * 0.5, color);
+}
+
+/// A chevron drawn by hand so it tweens smoothly from pointing-right (`t = 0`,
+/// collapsed) to pointing-down (`t = 1`, expanded) instead of snapping between
+/// two glyphs. Shared by watch-list-style screens (Friends, Follows).
+pub fn caret(ui: &mut egui::Ui, color: Color32, t: f32) -> egui::Response {
+    let size = font_size::LARGE;
+    let (rect, response) = ui.allocate_exact_size(Vec2::splat(size), egui::Sense::click());
+    let center = rect.center();
+    let r = size * 0.22;
+    let (sin, cos) = (t * std::f32::consts::FRAC_PI_2).sin_cos();
+    let rotate = |x: f32, y: f32| egui::pos2(center.x + x * cos - y * sin, center.y + x * sin + y * cos);
+    let stroke = Stroke::new(1.8_f32, color);
+    ui.painter().line_segment([rotate(-r, -r), rotate(r, 0.0)], stroke);
+    ui.painter().line_segment([rotate(r, 0.0), rotate(-r, r)], stroke);
+    response.on_hover_cursor(egui::CursorIcon::PointingHand)
+}
+
+/// Format a Steam playtime (minutes) as a compact `Xh Ym` / `Xh` / `Ym` string.
+pub fn format_playtime(minutes: i64) -> String {
+    if minutes <= 0 {
+        return "0m".to_owned();
+    }
+    let (hours, mins) = (minutes / 60, minutes % 60);
+    match (hours, mins) {
+        (0, m) => format!("{m}m"),
+        (h, 0) => format!("{h}h"),
+        (h, m) => format!("{h}h {m}m"),
+    }
+}
+
+pub fn persona_state_label(state: PersonaState) -> String {
+    let key = match state {
+        PersonaState::Offline => "friends-status-offline",
+        PersonaState::Online => "friends-status-online",
+        PersonaState::Busy => "friends-status-busy",
+        PersonaState::Away => "friends-status-away",
+        PersonaState::Snooze => "friends-status-snooze",
+        PersonaState::LookingToTrade => "friends-status-looking-to-trade",
+        PersonaState::LookingToPlay => "friends-status-looking-to-play",
+    };
+    i18n::message(key)
+}
+
+/// The expanded panel beneath a watch-list row: the top `limit` recently played
+/// games (by two-week playtime) with their two-week and lifetime hours.
+pub fn recent_games_panel(ui: &mut egui::Ui, games: &[RecentGame], palette: &ColorPalette, limit: usize) {
+    let mut games = games.iter().collect::<Vec<_>>();
+    games.sort_by_key(|g| std::cmp::Reverse(g.playtime_2weeks));
+
+    egui::Frame::NONE
+        .fill(palette.surface_secondary)
+        .corner_radius(CornerRadius::same(radius::MEDIUM))
+        .inner_margin(spacing::MEDIUM)
+        .outer_margin(Margin {
+            left: spacing::LARGE as i8,
+            top: spacing::TINY as i8,
+            bottom: spacing::SMALL as i8,
+            ..Default::default()
+        })
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.label(
+                egui::RichText::new(i18n::message("friends-recent-games"))
+                    .size(font_size::SMALL)
+                    .strong()
+                    .color(palette.text_secondary),
+            );
+            ui.add_space(spacing::TINY);
+
+            for game in games.into_iter().take(limit.max(1)) {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(&game.name).size(font_size::BODY).color(palette.text));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let total = format!("{} {}", i18n::message("friends-playtime-total"), format_playtime(game.playtime_forever));
+                        ui.label(egui::RichText::new(total).size(font_size::SMALL).color(palette.text_muted));
+                        ui.add_space(spacing::SMALL);
+                        let two_weeks = format!("{} {}", i18n::message("friends-playtime-2weeks"), format_playtime(game.playtime_2weeks));
+                        ui.label(egui::RichText::new(two_weeks).size(font_size::SMALL).color(palette.primary));
+                    });
+                });
+            }
+        });
 }

@@ -3,6 +3,7 @@ pub const DEFAULT_ICON_SIZE: f32 = 16.0;
 pub mod nav {
     pub const DASHBOARD: &str = egui_phosphor::regular::HOUSE;
     pub const FRIENDS: &str = egui_phosphor::regular::USERS;
+    pub const FOLLOWS: &str = egui_phosphor::regular::STAR;
     pub const MATCHES: &str = egui_phosphor::regular::SWORD;
     pub const HEROES: &str = egui_phosphor::regular::SHIELD_STAR;
     pub const ITEMS: &str = egui_phosphor::regular::CUBE;

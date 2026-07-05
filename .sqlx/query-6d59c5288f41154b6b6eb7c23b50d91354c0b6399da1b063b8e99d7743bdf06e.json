@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM follow_recent_games WHERE steam_id IN (SELECT steam_id FROM friends)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "6d59c5288f41154b6b6eb7c23b50d91354c0b6399da1b063b8e99d7743bdf06e"
+}
