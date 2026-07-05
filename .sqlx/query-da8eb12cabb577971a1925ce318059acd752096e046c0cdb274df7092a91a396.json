@@ -1,0 +1,218 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT match_id, hero_id, player_slot, radiant_win, start_time, duration, game_mode, lobby_type,\n                    kills, deaths, assists, gold_per_min, xp_per_min, last_hits, hero_damage, tower_damage, hero_healing\n             FROM match_summaries WHERE steam_id = ? ORDER BY start_time DESC",
+  "describe": {
+    "columns": [
+      {
+        "name": "match_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_summaries",
+            "name": "match_id"
+          }
+        }
+      },
+      {
+        "name": "hero_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_summaries",
+            "name": "hero_id"
+          }
+        }
+      },
+      {
+        "name": "player_slot",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_summaries",
+            "name": "player_slot"
+          }
+        }
+      },
+      {
+        "name": "radiant_win",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_summaries",
+            "name": "radiant_win"
+          }
+        }
+      },
+      {
+        "name": "start_time",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_summaries",
+            "name": "start_time"
+          }
+        }
+      },
+      {
+        "name": "duration",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_summaries",
+            "name": "duration"
+          }
+        }
+      },
+      {
+        "name": "game_mode",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_summaries",
+            "name": "game_mode"
+          }
+        }
+      },
+      {
+        "name": "lobby_type",
+        "ordinal": 7,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_summaries",
+            "name": "lobby_type"
+          }
+        }
+      },
+      {
+        "name": "kills",
+        "ordinal": 8,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_summaries",
+            "name": "kills"
+          }
+        }
+      },
+      {
+        "name": "deaths",
+        "ordinal": 9,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_summaries",
+            "name": "deaths"
+          }
+        }
+      },
+      {
+        "name": "assists",
+        "ordinal": 10,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_summaries",
+            "name": "assists"
+          }
+        }
+      },
+      {
+        "name": "gold_per_min",
+        "ordinal": 11,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_summaries",
+            "name": "gold_per_min"
+          }
+        }
+      },
+      {
+        "name": "xp_per_min",
+        "ordinal": 12,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_summaries",
+            "name": "xp_per_min"
+          }
+        }
+      },
+      {
+        "name": "last_hits",
+        "ordinal": 13,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_summaries",
+            "name": "last_hits"
+          }
+        }
+      },
+      {
+        "name": "hero_damage",
+        "ordinal": 14,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_summaries",
+            "name": "hero_damage"
+          }
+        }
+      },
+      {
+        "name": "tower_damage",
+        "ordinal": 15,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_summaries",
+            "name": "tower_damage"
+          }
+        }
+      },
+      {
+        "name": "hero_healing",
+        "ordinal": 16,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_summaries",
+            "name": "hero_healing"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "da8eb12cabb577971a1925ce318059acd752096e046c0cdb274df7092a91a396"
+}

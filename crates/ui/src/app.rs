@@ -239,9 +239,87 @@ impl App {
                 let items = client.stratz(token.clone()).get_items(locale).await.whatever_context("Failed to fetch items")?;
                 storage.upsert_items(locale, &items).await.whatever_context("Failed to save items")?;
             }
+
+            // OpenDota constants fill the gaps Steam/Stratz leave (every neutral
+            // artifact and the `enhancement_*` active enchantments). They are
+            // English-only, so they land under the `en` locale; localized names
+            // from the loop above are left untouched.
+            let od_heroes = client.opendota(None).get_heroes().await.whatever_context("Failed to fetch heroes from OpenDota")?;
+            storage.upsert_heroes("en", &od_heroes).await.whatever_context("Failed to save OpenDota heroes")?;
+            let od_items = client.opendota(None).get_items().await.whatever_context("Failed to fetch items from OpenDota")?;
+            storage.upsert_items("en", &od_items).await.whatever_context("Failed to save OpenDota items")?;
+
             let heroes = storage.hero_count().await.whatever_context("Failed to count heroes")?;
             let items = storage.item_count().await.whatever_context("Failed to count items")?;
             Ok(TaskResult::StaticDataSynced { heroes, items })
+        });
+    }
+
+    /// Load the localized hero/item name maps used to render matches as text.
+    fn spawn_load_match_names(bridge: &AsyncBridge, storage: &storage::Storage) {
+        let locale = i18n::current_locale();
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            let heroes = storage.hero_names(&locale).await.whatever_context("Failed to load hero names")?;
+            let items = storage.item_names(&locale).await.whatever_context("Failed to load item names")?;
+            let hero_slugs = storage.hero_slugs().await.whatever_context("Failed to load hero slugs")?;
+            let item_slugs = storage.item_slugs().await.whatever_context("Failed to load item slugs")?;
+            Ok(TaskResult::MatchNamesLoaded {
+                heroes,
+                items,
+                hero_slugs,
+                item_slugs,
+            })
+        });
+    }
+
+    /// Load a friend's stored match summaries (no network).
+    fn spawn_load_matches_from_db(bridge: &AsyncBridge, storage: &storage::Storage, steam_id: String) {
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            let matches = storage.list_match_summaries(&steam_id).await.whatever_context("Failed to load matches from storage")?;
+            Ok(TaskResult::MatchSummariesLoaded { steam_id, matches })
+        });
+    }
+
+    /// Fetch a friend's recent matches from OpenDota (capped at `max_match_history`),
+    /// store them, then hand them back.
+    fn spawn_fetch_matches(bridge: &AsyncBridge, client: &plugin::Client, storage: &storage::Storage, steam_id: String) {
+        let (api_key, limit) = {
+            let config = configs::read();
+            (config.secrets.opendota_api_key.clone(), config.matches.max_match_history)
+        };
+
+        let client = client.clone();
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            let matches = client
+                .opendota(api_key)
+                .recent_matches(&steam_id, limit)
+                .await
+                .whatever_context("Failed to fetch matches from OpenDota")?;
+            storage.replace_match_summaries(&steam_id, &matches).await.whatever_context("Failed to save matches")?;
+            Ok(TaskResult::MatchSummariesLoaded { steam_id, matches })
+        });
+    }
+
+    /// Open one match's full detail: serve it from the DB if present, otherwise
+    /// fetch it from OpenDota and store it.
+    fn spawn_fetch_match_detail(bridge: &AsyncBridge, client: &plugin::Client, storage: &storage::Storage, match_id: i64) {
+        let api_key = configs::read().secrets.opendota_api_key.clone();
+        let client = client.clone();
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            if let Some(detail) = storage.get_match_detail(match_id).await.whatever_context("Failed to load match detail from storage")? {
+                return Ok(TaskResult::MatchDetailLoaded(Box::new(detail)));
+            }
+            let detail = client
+                .opendota(api_key)
+                .match_detail(match_id)
+                .await
+                .whatever_context("Failed to fetch match detail from OpenDota")?;
+            storage.upsert_match_detail(&detail).await.whatever_context("Failed to save match detail")?;
+            Ok(TaskResult::MatchDetailLoaded(Box::new(detail)))
         });
     }
 
@@ -297,10 +375,19 @@ impl App {
                 let summary = format!("{heroes} {} · {items} {}", i18n::message("nav-heroes"), i18n::message("nav-items"));
                 main.toasts.push_success(i18n::message("data-sync-done-title"), summary);
             }
+            TaskResult::MatchSummariesLoaded { steam_id, matches } => main.matches.set_matches(steam_id, matches),
+            TaskResult::MatchDetailLoaded(detail) => main.matches.set_detail(*detail),
+            TaskResult::MatchNamesLoaded {
+                heroes,
+                items,
+                hero_slugs,
+                item_slugs,
+            } => main.matches.set_names(heroes, items, hero_slugs, item_slugs),
             TaskResult::TaskFailed(error) => {
                 // A failure clears whichever in-flight indicator was set; the
-                // unaffected one is already idle, so resetting both is harmless.
+                // unaffected ones are already idle, so resetting them all is harmless.
                 main.friends.set_loading(false);
+                main.matches.set_loading(false);
                 main.settings.set_syncing(false);
                 main.toasts.push_error(i18n::message("common-error"), error);
             }
@@ -451,7 +538,27 @@ impl eframe::App for App {
                             Vec::new()
                         }
                         Route::Matches => {
-                            main.matches.show(ui);
+                            main.matches.set_friends(main.friends.friends());
+                            if main.matches.needs_names() {
+                                main.matches.mark_names_requested();
+                                Self::spawn_load_match_names(&self.bridge, &self.storage);
+                            }
+                            match main.matches.show(ui) {
+                                Some(screens::matches::MatchAction::SelectFriend(steam_id)) => {
+                                    main.matches.set_loading(true);
+                                    Self::spawn_load_matches_from_db(&self.bridge, &self.storage, steam_id);
+                                }
+                                Some(screens::matches::MatchAction::FetchMatches(steam_id)) => {
+                                    main.matches.set_loading(true);
+                                    Self::spawn_fetch_matches(&self.bridge, &self.client, &self.storage, steam_id);
+                                }
+                                Some(screens::matches::MatchAction::OpenMatch(match_id)) => {
+                                    main.matches.set_loading(true);
+                                    Self::spawn_fetch_match_detail(&self.bridge, &self.client, &self.storage, match_id);
+                                }
+                                Some(screens::matches::MatchAction::CloseDetail) => main.matches.close_detail(),
+                                None => {}
+                            }
                             Vec::new()
                         }
                         Route::Heroes => {

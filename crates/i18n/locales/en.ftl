@@ -39,6 +39,19 @@ matches-filter-losses = Losses
 matches-loading = Loading matches...
 matches-empty = No matches found
 matches-view-details = View Details
+matches-select-friend = Friend
+matches-pick-friend = Select a friend
+matches-no-friends = Sync your friends first to track their matches
+matches-fetch = Fetch
+matches-fetching = Fetching...
+matches-back = Back
+matches-radiant = Radiant
+matches-dire = Dire
+matches-ago-minutes = m ago
+matches-ago-hours = h ago
+matches-ago-days = d ago
+matches-aghanim-scepter = Aghanim's Scepter
+matches-aghanim-shard = Aghanim's Shard
 
 # Match Detail
 match-victory = Victory
@@ -50,6 +63,15 @@ match-date = Date
 match-players = Players
 match-stats = Statistics
 match-items = Items
+match-net-worth = Net Worth
+match-mode-all-pick = All Pick
+match-mode-captains-mode = Captains Mode
+match-mode-random-draft = Random Draft
+match-mode-single-draft = Single Draft
+match-mode-all-random = All Random
+match-mode-captains-draft = Captains Draft
+match-mode-ranked-all-pick = Ranked All Pick
+match-mode-turbo = Turbo
 
 # Player Stats
 stats-kills = Kills
@@ -147,6 +169,11 @@ settings-friends-load-avatars = Load avatars
 settings-friends-load-avatars-description = Fetch and display each friend's Steam avatar. Disable to save bandwidth.
 settings-friends-recent-games-limit = Recent games shown
 settings-friends-recent-games-limit-description = How many recently played games to list per friend in the watch list.
+settings-matches = Matches
+settings-matches-max-history = Matches per friend
+settings-matches-max-history-description = How many recent matches to fetch each time you pull a friend's history.
+settings-matches-load-icons = Load hero & item icons
+settings-matches-load-icons-description = Fetch and display hero and item icons from the Steam CDN in match views. Disable to save bandwidth.
 
 # Common
 common-loading = Loading...

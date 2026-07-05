@@ -6,10 +6,10 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use shared::{Friend, HeroEntry, ItemEntry, PersonaState, RecentGame};
+use shared::{Friend, HeroEntry, ItemEntry, MatchDetail, MatchPlayer, MatchSummary, PersonaState, RecentGame};
 use snafu::ResultExt;
 use sqlx::{
-    Row, SqlitePool,
+    SqlitePool,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
 };
 use tracing::info;
@@ -132,8 +132,8 @@ impl Storage {
         sqlx::query!("DELETE FROM friend_recent_games").execute(&mut *tx).await.context(QuerySnafu)?;
         for friend in friends {
             sqlx::query!(
-                "INSERT INTO friends (steam_id, friend_since, persona_name, avatar, profile_url, persona_state, last_log_off, game_extra_info, updated_at) \
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                r#"INSERT INTO friends (steam_id, friend_since, persona_name, avatar, profile_url, persona_state, last_log_off, game_extra_info, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
                 friend.steam_id,
                 friend.friend_since,
                 friend.persona_name,
@@ -149,16 +149,16 @@ impl Storage {
             .context(QuerySnafu)?;
 
             for game in &friend.recent_games {
-                sqlx::query(
-                    "INSERT INTO friend_recent_games (steam_id, app_id, name, playtime_2weeks, playtime_forever, img_icon_url) \
-                     VALUES (?, ?, ?, ?, ?, ?)",
+                sqlx::query!(
+                    r#"INSERT INTO friend_recent_games (steam_id, app_id, name, playtime_2weeks, playtime_forever, img_icon_url)
+                     VALUES (?, ?, ?, ?, ?, ?)"#,
+                    friend.steam_id,
+                    game.app_id,
+                    game.name,
+                    game.playtime_2weeks,
+                    game.playtime_forever,
+                    game.img_icon_url,
                 )
-                .bind(&friend.steam_id)
-                .bind(game.app_id)
-                .bind(&game.name)
-                .bind(game.playtime_2weeks)
-                .bind(game.playtime_forever)
-                .bind(&game.img_icon_url)
                 .execute(&mut *tx)
                 .await
                 .context(QuerySnafu)?;
@@ -171,9 +171,9 @@ impl Storage {
     /// Recently played games for every friend, keyed by steam id and ordered by
     /// two-week playtime (longest first).
     async fn recent_games_by_friend(&self) -> Result<HashMap<String, Vec<RecentGame>>> {
-        let rows = sqlx::query(
-            "SELECT steam_id, app_id, name, playtime_2weeks, playtime_forever, img_icon_url \
-             FROM friend_recent_games ORDER BY playtime_2weeks DESC",
+        let rows = sqlx::query!(
+            r#"SELECT steam_id AS "steam_id!", app_id, name, playtime_2weeks, playtime_forever, img_icon_url
+             FROM friend_recent_games ORDER BY playtime_2weeks DESC"#,
         )
         .fetch_all(&self.pool)
         .await
@@ -181,13 +181,12 @@ impl Storage {
 
         let mut by_friend: HashMap<String, Vec<RecentGame>> = HashMap::new();
         for row in rows {
-            let steam_id = row.try_get::<String, _>("steam_id").context(QuerySnafu)?;
-            by_friend.entry(steam_id).or_default().push(RecentGame {
-                app_id: row.try_get("app_id").context(QuerySnafu)?,
-                name: row.try_get("name").context(QuerySnafu)?,
-                playtime_2weeks: row.try_get("playtime_2weeks").context(QuerySnafu)?,
-                playtime_forever: row.try_get("playtime_forever").context(QuerySnafu)?,
-                img_icon_url: row.try_get("img_icon_url").context(QuerySnafu)?,
+            by_friend.entry(row.steam_id).or_default().push(RecentGame {
+                app_id: row.app_id,
+                name: row.name,
+                playtime_2weeks: row.playtime_2weeks,
+                playtime_forever: row.playtime_forever,
+                img_icon_url: row.img_icon_url,
             });
         }
         Ok(by_friend)
@@ -219,6 +218,298 @@ impl Storage {
                 game_extra_info: row.game_extra_info,
             })
             .collect())
+    }
+
+    /// Replace the stored match summaries for one friend with `summaries`.
+    /// Summaries belong to a specific friend (the player whose history they came
+    /// from), so a re-fetch wholesale replaces that friend's rows only.
+    pub async fn replace_match_summaries(&self, steam_id: &str, summaries: &[MatchSummary]) -> Result<()> {
+        let mut tx = self.pool.begin().await.context(QuerySnafu)?;
+        sqlx::query!("DELETE FROM match_summaries WHERE steam_id = ?", steam_id)
+            .execute(&mut *tx)
+            .await
+            .context(QuerySnafu)?;
+        for m in summaries {
+            sqlx::query!(
+                r#"INSERT INTO match_summaries
+                 (steam_id, match_id, hero_id, player_slot, radiant_win, start_time, duration, game_mode, lobby_type,
+                  kills, deaths, assists, gold_per_min, xp_per_min, last_hits, hero_damage, tower_damage, hero_healing)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
+                steam_id,
+                m.match_id,
+                m.hero_id,
+                m.player_slot,
+                m.radiant_win,
+                m.start_time,
+                m.duration,
+                m.game_mode,
+                m.lobby_type,
+                m.kills,
+                m.deaths,
+                m.assists,
+                m.gold_per_min,
+                m.xp_per_min,
+                m.last_hits,
+                m.hero_damage,
+                m.tower_damage,
+                m.hero_healing,
+            )
+            .execute(&mut *tx)
+            .await
+            .context(QuerySnafu)?;
+        }
+        tx.commit().await.context(QuerySnafu)?;
+        self.mark_synced("matches").await
+    }
+
+    /// One friend's stored match summaries, newest first.
+    pub async fn list_match_summaries(&self, steam_id: &str) -> Result<Vec<MatchSummary>> {
+        let rows = sqlx::query!(
+            r#"SELECT match_id, hero_id, player_slot, radiant_win, start_time, duration, game_mode, lobby_type,
+                    kills, deaths, assists, gold_per_min, xp_per_min, last_hits, hero_damage, tower_damage, hero_healing
+             FROM match_summaries WHERE steam_id = ? ORDER BY start_time DESC"#,
+            steam_id,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .context(QuerySnafu)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|row| MatchSummary {
+                match_id: row.match_id,
+                hero_id: row.hero_id as i32,
+                player_slot: row.player_slot as i32,
+                radiant_win: row.radiant_win != 0,
+                start_time: row.start_time,
+                duration: row.duration as i32,
+                game_mode: row.game_mode as i32,
+                lobby_type: row.lobby_type as i32,
+                kills: row.kills as i32,
+                deaths: row.deaths as i32,
+                assists: row.assists as i32,
+                gold_per_min: row.gold_per_min as i32,
+                xp_per_min: row.xp_per_min as i32,
+                last_hits: row.last_hits as i32,
+                hero_damage: row.hero_damage as i32,
+                tower_damage: row.tower_damage as i32,
+                hero_healing: row.hero_healing as i32,
+            })
+            .collect())
+    }
+
+    /// Upsert the full detail for one match: the header row plus its players
+    /// (replaced wholesale).
+    pub async fn upsert_match_detail(&self, detail: &MatchDetail) -> Result<()> {
+        let mut tx = self.pool.begin().await.context(QuerySnafu)?;
+        sqlx::query!(
+            r#"INSERT INTO match_details
+             (match_id, radiant_win, duration, start_time, game_mode, lobby_type, radiant_score, dire_score, first_blood_time)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(match_id) DO UPDATE SET
+                radiant_win = excluded.radiant_win, duration = excluded.duration, start_time = excluded.start_time,
+                game_mode = excluded.game_mode, lobby_type = excluded.lobby_type, radiant_score = excluded.radiant_score,
+                dire_score = excluded.dire_score, first_blood_time = excluded.first_blood_time"#,
+            detail.match_id,
+            detail.radiant_win,
+            detail.duration,
+            detail.start_time,
+            detail.game_mode,
+            detail.lobby_type,
+            detail.radiant_score,
+            detail.dire_score,
+            detail.first_blood_time,
+        )
+        .execute(&mut *tx)
+        .await
+        .context(QuerySnafu)?;
+
+        sqlx::query!("DELETE FROM match_players WHERE match_id = ?", detail.match_id)
+            .execute(&mut *tx)
+            .await
+            .context(QuerySnafu)?;
+        for p in &detail.players {
+            let (item_0, item_1, item_2, item_3, item_4, item_5) = (p.items[0], p.items[1], p.items[2], p.items[3], p.items[4], p.items[5]);
+            let (backpack_0, backpack_1, backpack_2) = (p.backpack[0], p.backpack[1], p.backpack[2]);
+            sqlx::query!(
+                r#"INSERT INTO match_players
+                 (match_id, player_slot, account_id, hero_id, personaname, kills, deaths, assists, last_hits, denies,
+                  gold_per_min, xp_per_min, level, net_worth, hero_damage, tower_damage, hero_healing,
+                  item_0, item_1, item_2, item_3, item_4, item_5, backpack_0, backpack_1, backpack_2, item_neutral, item_neutral2,
+                  aghanims_scepter, aghanims_shard)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"#,
+                detail.match_id,
+                p.player_slot,
+                p.account_id,
+                p.hero_id,
+                p.personaname,
+                p.kills,
+                p.deaths,
+                p.assists,
+                p.last_hits,
+                p.denies,
+                p.gold_per_min,
+                p.xp_per_min,
+                p.level,
+                p.net_worth,
+                p.hero_damage,
+                p.tower_damage,
+                p.hero_healing,
+                item_0,
+                item_1,
+                item_2,
+                item_3,
+                item_4,
+                item_5,
+                backpack_0,
+                backpack_1,
+                backpack_2,
+                p.item_neutral,
+                p.item_neutral2,
+                p.aghanims_scepter,
+                p.aghanims_shard,
+            )
+            .execute(&mut *tx)
+            .await
+            .context(QuerySnafu)?;
+        }
+        tx.commit().await.context(QuerySnafu)?;
+        Ok(())
+    }
+
+    /// The stored detail for one match, if it has been fetched. Players are
+    /// ordered by slot (Radiant 0..=127 first, then Dire).
+    pub async fn get_match_detail(&self, match_id: i64) -> Result<Option<MatchDetail>> {
+        let Some(head) = sqlx::query!(
+            r#"SELECT radiant_win, duration, start_time, game_mode, lobby_type, radiant_score, dire_score, first_blood_time
+             FROM match_details WHERE match_id = ?"#,
+            match_id,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .context(QuerySnafu)?
+        else {
+            return Ok(None);
+        };
+
+        let player_rows = sqlx::query!(
+            r#"SELECT player_slot, account_id, hero_id, personaname, kills, deaths, assists, last_hits, denies,
+                    gold_per_min, xp_per_min, level, net_worth, hero_damage, tower_damage, hero_healing,
+                    item_0, item_1, item_2, item_3, item_4, item_5, backpack_0, backpack_1, backpack_2, item_neutral, item_neutral2,
+                    aghanims_scepter, aghanims_shard
+             FROM match_players WHERE match_id = ? ORDER BY player_slot ASC"#,
+            match_id,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .context(QuerySnafu)?;
+
+        let players = player_rows
+            .into_iter()
+            .map(|row| MatchPlayer {
+                player_slot: row.player_slot as i32,
+                account_id: row.account_id,
+                hero_id: row.hero_id as i32,
+                personaname: row.personaname,
+                kills: row.kills as i32,
+                deaths: row.deaths as i32,
+                assists: row.assists as i32,
+                last_hits: row.last_hits as i32,
+                denies: row.denies as i32,
+                gold_per_min: row.gold_per_min as i32,
+                xp_per_min: row.xp_per_min as i32,
+                level: row.level as i32,
+                net_worth: row.net_worth as i32,
+                hero_damage: row.hero_damage as i32,
+                tower_damage: row.tower_damage as i32,
+                hero_healing: row.hero_healing as i32,
+                items: [
+                    row.item_0 as i32,
+                    row.item_1 as i32,
+                    row.item_2 as i32,
+                    row.item_3 as i32,
+                    row.item_4 as i32,
+                    row.item_5 as i32,
+                ],
+                backpack: [row.backpack_0 as i32, row.backpack_1 as i32, row.backpack_2 as i32],
+                item_neutral: row.item_neutral as i32,
+                item_neutral2: row.item_neutral2 as i32,
+                aghanims_scepter: row.aghanims_scepter != 0,
+                aghanims_shard: row.aghanims_shard != 0,
+            })
+            .collect::<Vec<_>>();
+
+        Ok(Some(MatchDetail {
+            match_id,
+            radiant_win: head.radiant_win != 0,
+            duration: head.duration as i32,
+            start_time: head.start_time,
+            game_mode: head.game_mode as i32,
+            lobby_type: head.lobby_type as i32,
+            radiant_score: head.radiant_score as i32,
+            dire_score: head.dire_score as i32,
+            first_blood_time: head.first_blood_time as i32,
+            players,
+        }))
+    }
+
+    /// Localized hero names keyed by hero id, falling back to the internal name
+    /// when a locale has no translation. Used to render match heroes as text.
+    pub async fn hero_names(&self, locale: &str) -> Result<HashMap<i32, String>> {
+        let rows = sqlx::query!(
+            r#"SELECT h.id AS "id!", COALESCE(hn.display_name, h.internal_name) AS "name!"
+             FROM heroes h LEFT JOIN hero_names hn ON hn.hero_id = h.id AND hn.locale = ?"#,
+            locale,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .context(QuerySnafu)?;
+
+        let mut map = HashMap::with_capacity(rows.len());
+        for row in rows {
+            map.insert(row.id as i32, row.name);
+        }
+        Ok(map)
+    }
+
+    /// Hero internal names keyed by hero id (e.g. `npc_dota_hero_antimage`). Used
+    /// to build CDN icon URLs; locale-independent.
+    pub async fn hero_slugs(&self) -> Result<HashMap<i32, String>> {
+        let rows = sqlx::query!("SELECT id, internal_name FROM heroes").fetch_all(&self.pool).await.context(QuerySnafu)?;
+        let mut map = HashMap::with_capacity(rows.len());
+        for row in rows {
+            map.insert(row.id as i32, row.internal_name);
+        }
+        Ok(map)
+    }
+
+    /// Item short names keyed by item id (e.g. `blink`). Used to build CDN icon
+    /// URLs; locale-independent.
+    pub async fn item_slugs(&self) -> Result<HashMap<i32, String>> {
+        let rows = sqlx::query!("SELECT id, short_name FROM items").fetch_all(&self.pool).await.context(QuerySnafu)?;
+        let mut map = HashMap::with_capacity(rows.len());
+        for row in rows {
+            map.insert(row.id as i32, row.short_name);
+        }
+        Ok(map)
+    }
+
+    /// Localized item names keyed by item id, falling back to the short name.
+    pub async fn item_names(&self, locale: &str) -> Result<HashMap<i32, String>> {
+        let rows = sqlx::query!(
+            r#"SELECT i.id AS "id!", COALESCE(inm.display_name, i.short_name) AS "name!"
+             FROM items i LEFT JOIN item_names inm ON inm.item_id = i.id AND inm.locale = ?"#,
+            locale,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .context(QuerySnafu)?;
+
+        let mut map = HashMap::with_capacity(rows.len());
+        for row in rows {
+            map.insert(row.id as i32, row.name);
+        }
+        Ok(map)
     }
 
     /// Last successful sync time (unix seconds) for `key`, if any.

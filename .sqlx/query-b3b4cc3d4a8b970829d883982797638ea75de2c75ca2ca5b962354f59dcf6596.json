@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM friend_recent_games",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": []
+  },
+  "hash": "b3b4cc3d4a8b970829d883982797638ea75de2c75ca2ca5b962354f59dcf6596"
+}

@@ -53,6 +53,9 @@ const GAMES: Section = Section {
 const FRIENDS: Section = Section {
     keys: &["settings-friends", "settings-friends-load-avatars", "settings-friends-recent-games-limit"],
 };
+const MATCHES: Section = Section {
+    keys: &["settings-matches", "settings-matches-max-history", "settings-matches-load-icons"],
+};
 const GAME_DATA: Section = Section { keys: &["settings-game-data"] };
 const NETWORK: Section = Section {
     keys: &["settings-network", "settings-network-proxy"],
@@ -150,6 +153,7 @@ impl SettingScreen {
         let mut tracking = config.tracking.clone();
         let mut games = config.games.clone();
         let mut friends = config.friends.clone();
+        let mut matches = config.matches.clone();
 
         let mut current_language = Self::language_code_to_static(&general.language);
 
@@ -214,6 +218,14 @@ impl SettingScreen {
 
                 if Self::section_visible(&query, &FRIENDS) {
                     if Self::friends_section(ui, &mut friends) {
+                        changed = true;
+                    }
+                    ui.add_space(spacing::MEDIUM);
+                    shown_any = true;
+                }
+
+                if Self::section_visible(&query, &MATCHES) {
+                    if Self::matches_section(ui, &mut matches) {
                         changed = true;
                     }
                     ui.add_space(spacing::MEDIUM);
@@ -339,7 +351,14 @@ impl SettingScreen {
             opendota_api_key: Self::optional(&self.opendota_api_key),
         };
 
-        if changed || config.tracking != tracking || config.games != games || config.friends != friends || config.network != network || config.secrets != secrets {
+        if changed
+            || config.tracking != tracking
+            || config.games != games
+            || config.friends != friends
+            || config.matches != matches
+            || config.network != network
+            || config.secrets != secrets
+        {
             configs::update(|cfg| {
                 cfg.general = general;
                 cfg.notification = notification;
@@ -347,6 +366,7 @@ impl SettingScreen {
                 cfg.tracking = tracking;
                 cfg.games = games;
                 cfg.friends = friends;
+                cfg.matches = matches;
                 cfg.network = network;
                 cfg.secrets = secrets;
             });
@@ -749,6 +769,52 @@ impl SettingScreen {
                     let mut limit = friends.recent_games_limit as f32;
                     if ui.add(egui::Slider::new(&mut limit, 1.0..=10.0).integer()).changed() {
                         friends.recent_games_limit = limit as usize;
+                        changed = true;
+                    }
+                });
+            });
+        });
+        changed
+    }
+
+    fn matches_section(ui: &mut egui::Ui, matches: &mut configs::MatchesConfig) -> bool {
+        let palette = colors();
+        let mut changed = false;
+        Self::section_frame(ui, |ui| {
+            ui.label(egui::RichText::new(i18n::message("settings-matches")).size(font_size::LARGE).color(palette.text));
+            ui.add_space(spacing::SMALL);
+
+            ui.horizontal(|ui| {
+                ui.vertical(|ui| {
+                    ui.label(egui::RichText::new(i18n::message("settings-matches-max-history")).size(font_size::BODY).color(palette.text));
+                    ui.label(
+                        egui::RichText::new(i18n::message("settings-matches-max-history-description"))
+                            .size(font_size::SMALL)
+                            .color(palette.text_muted),
+                    );
+                });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let mut limit = matches.max_match_history as f32;
+                    if ui.add(egui::Slider::new(&mut limit, 1.0..=25.0).integer()).changed() {
+                        matches.max_match_history = limit as usize;
+                        changed = true;
+                    }
+                });
+            });
+
+            ui.add_space(spacing::SMALL);
+
+            ui.horizontal(|ui| {
+                ui.vertical(|ui| {
+                    ui.label(egui::RichText::new(i18n::message("settings-matches-load-icons")).size(font_size::BODY).color(palette.text));
+                    ui.label(
+                        egui::RichText::new(i18n::message("settings-matches-load-icons-description"))
+                            .size(font_size::SMALL)
+                            .color(palette.text_muted),
+                    );
+                });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if widgets::toggle(ui, &mut matches.load_icons).changed() {
                         changed = true;
                     }
                 });

@@ -39,6 +39,19 @@ matches-filter-losses = 失败
 matches-loading = 加载比赛中...
 matches-empty = 未找到比赛
 matches-view-details = 查看详情
+matches-select-friend = 好友
+matches-pick-friend = 选择一位好友
+matches-no-friends = 请先同步好友以追踪他们的比赛
+matches-fetch = 获取
+matches-fetching = 获取中...
+matches-back = 返回
+matches-radiant = 天辉
+matches-dire = 夜魇
+matches-ago-minutes = 分钟前
+matches-ago-hours = 小时前
+matches-ago-days = 天前
+matches-aghanim-scepter = 阿哈利姆神杖
+matches-aghanim-shard = 阿哈利姆魔晶
 
 # 比赛详情
 match-victory = 胜利
@@ -50,6 +63,15 @@ match-date = 日期
 match-players = 玩家
 match-stats = 数据统计
 match-items = 物品
+match-net-worth = 净资产
+match-mode-all-pick = 全英雄选择
+match-mode-captains-mode = 队长模式
+match-mode-random-draft = 随机征召
+match-mode-single-draft = 单一征召
+match-mode-all-random = 全随机
+match-mode-captains-draft = 队长征召
+match-mode-ranked-all-pick = 天梯全英雄选择
+match-mode-turbo = 加速模式
 
 # 玩家数据
 stats-kills = 击杀
@@ -147,6 +169,11 @@ settings-friends-load-avatars = 加载头像
 settings-friends-load-avatars-description = 获取并显示每位好友的 Steam 头像。关闭可节省流量。
 settings-friends-recent-games-limit = 显示的最近游戏数
 settings-friends-recent-games-limit-description = 在关注列表中为每位好友列出多少个最近游玩的游戏。
+settings-matches = 比赛
+settings-matches-max-history = 每位好友的比赛数
+settings-matches-max-history-description = 每次拉取好友历史时获取多少场最近的比赛。
+settings-matches-load-icons = 加载英雄和物品图标
+settings-matches-load-icons-description = 在比赛视图中从 Steam CDN 获取并显示英雄和物品图标。关闭可节省流量。
 
 # 通用
 common-loading = 加载中...

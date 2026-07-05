@@ -1,0 +1,110 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT radiant_win, duration, start_time, game_mode, lobby_type, radiant_score, dire_score, first_blood_time\n             FROM match_details WHERE match_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "radiant_win",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_details",
+            "name": "radiant_win"
+          }
+        }
+      },
+      {
+        "name": "duration",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_details",
+            "name": "duration"
+          }
+        }
+      },
+      {
+        "name": "start_time",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_details",
+            "name": "start_time"
+          }
+        }
+      },
+      {
+        "name": "game_mode",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_details",
+            "name": "game_mode"
+          }
+        }
+      },
+      {
+        "name": "lobby_type",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_details",
+            "name": "lobby_type"
+          }
+        }
+      },
+      {
+        "name": "radiant_score",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_details",
+            "name": "radiant_score"
+          }
+        }
+      },
+      {
+        "name": "dire_score",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_details",
+            "name": "dire_score"
+          }
+        }
+      },
+      {
+        "name": "first_blood_time",
+        "ordinal": 7,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_details",
+            "name": "first_blood_time"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "6107118b140c7a7c26660b3c9e634429682b0bc1502a88ada59c20becef37544"
+}

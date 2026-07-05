@@ -201,6 +201,7 @@ pub struct AppConfig {
     pub tracking: TrackingConfig,
     pub games: GamesConfig,
     pub friends: FriendsConfig,
+    pub matches: MatchesConfig,
     pub network: NetworkConfig,
     pub notification: NotificationsConfig,
     pub secrets: SecretsConfig,
@@ -229,6 +230,27 @@ impl Default for FriendsConfig {
         Self {
             load_avatars: false,
             recent_games_limit: 5,
+        }
+    }
+}
+
+/// Match-history options.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MatchesConfig {
+    /// How many recent matches to fetch per friend. Kept small (1) by default
+    /// while the feature is in development.
+    pub max_match_history: usize,
+    /// Whether to fetch and render hero/item icons (from the Steam CDN) in the
+    /// match views. Off by default so the base app stays network-light.
+    pub load_icons: bool,
+}
+
+impl Default for MatchesConfig {
+    fn default() -> Self {
+        Self {
+            max_match_history: 1,
+            load_icons: false,
         }
     }
 }

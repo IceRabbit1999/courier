@@ -4,12 +4,6 @@ use tracing::error;
 
 use crate::components::toast::ToastSender;
 
-/// What a spawned task hands back: a successful [`TaskResult`] or a
-/// [`snafu::Whatever`] error. Spawn closures attach context to any `plugin` /
-/// `storage` error with [`snafu::ResultExt::whatever_context`] (then `?`), and
-/// the bridge collapses every error into a single [`TaskResult::TaskFailed`].
-pub type TaskOutcome = Result<TaskResult, snafu::Whatever>;
-
 /// Results flowing from background tasks back to the UI thread.
 ///
 /// Each variant represents one completed async operation; every failure, whatever
@@ -21,6 +15,17 @@ pub enum TaskResult {
     FriendsLoaded(Vec<shared::Friend>),
     /// Static reference data (heroes/items) was synced; carries the row counts.
     StaticDataSynced { heroes: i64, items: i64 },
+    /// A friend's match summaries, loaded from the DB or fetched from OpenDota.
+    MatchSummariesLoaded { steam_id: String, matches: Vec<shared::MatchSummary> },
+    /// Full detail for one match, loaded from the DB or fetched from OpenDota.
+    MatchDetailLoaded(Box<shared::MatchDetail>),
+    /// Localized hero/item name maps (plus CDN icon slugs) for rendering matches.
+    MatchNamesLoaded {
+        heroes: std::collections::HashMap<i32, String>,
+        items: std::collections::HashMap<i32, String>,
+        hero_slugs: std::collections::HashMap<i32, String>,
+        item_slugs: std::collections::HashMap<i32, String>,
+    },
     /// Any background task failed; carries the user-facing error message.
     TaskFailed(String),
 }
@@ -49,14 +54,14 @@ impl AsyncBridge {
         &self.toasts
     }
 
-    /// Spawn an async task whose output is a [`TaskOutcome`].
+    /// Spawn an async task.
     ///
     /// On `Ok` the [`TaskResult`] is forwarded as-is; on `Err` it is collapsed
     /// into [`TaskResult::TaskFailed`]. Either way the result is sent to the
     /// UI-side receiver and a repaint is requested so the UI picks it up promptly.
     pub fn spawn<F>(&self, future: F)
     where
-        F: Future<Output = TaskOutcome> + Send + 'static,
+        F: Future<Output = Result<TaskResult, snafu::Whatever>> + Send + 'static,
     {
         let tx = self.tx.clone();
         let ctx = self.ctx.clone();

@@ -1,3 +1,4 @@
+mod opendota;
 mod steam;
 mod stratz;
 

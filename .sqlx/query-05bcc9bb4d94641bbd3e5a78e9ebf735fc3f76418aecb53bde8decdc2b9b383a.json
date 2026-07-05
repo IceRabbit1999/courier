@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO match_players\n                 (match_id, player_slot, account_id, hero_id, personaname, kills, deaths, assists, last_hits, denies,\n                  gold_per_min, xp_per_min, level, net_worth, hero_damage, tower_damage, hero_healing,\n                  item_0, item_1, item_2, item_3, item_4, item_5, backpack_0, backpack_1, backpack_2, item_neutral, item_neutral2,\n                  aghanims_scepter, aghanims_shard)\n                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 30
+    },
+    "nullable": []
+  },
+  "hash": "05bcc9bb4d94641bbd3e5a78e9ebf735fc3f76418aecb53bde8decdc2b9b383a"
+}

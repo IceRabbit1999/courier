@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO match_summaries\n                 (steam_id, match_id, hero_id, player_slot, radiant_win, start_time, duration, game_mode, lobby_type,\n                  kills, deaths, assists, gold_per_min, xp_per_min, last_hits, hero_damage, tower_damage, hero_healing)\n                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 18
+    },
+    "nullable": []
+  },
+  "hash": "0a966b28744378d9f60e6e577169876b15c1e43a3d6db6ddbc3d182286f03479"
+}

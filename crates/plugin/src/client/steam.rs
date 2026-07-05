@@ -107,22 +107,23 @@ impl Steam<'_> {
         // Recently played games are only worth fetching for friends who are online
         // (one request each); offline friends keep an empty list. A single failed
         // fetch is logged and skipped rather than failing the whole refresh.
-        for friend in merged.iter_mut().filter(|f| f.persona_state.is_online()) {
-            let Ok(games) = self
-                .get_recent_games(&friend.steam_id)
-                .await
-                .inspect_err(|e| warn!(steanid=%friend.steam_id, "Failed to fetch recent games: {e:?}"))
-            else {
-                continue;
-            };
-            friend.recent_games = games;
-        }
+        let _ = futures::future::join_all(merged.iter_mut().map(|f| async move {
+            if f.persona_state.is_online() {
+                let games = self
+                    .get_recent_games(&f.steam_id)
+                    .await
+                    .inspect_err(|e| warn!(steanid=%f.steam_id, "Failed to fetch recent games: {e:?}"))?;
+                f.recent_games = games;
+            }
+            Ok::<_, crate::Error>(())
+        }))
+        .await;
         Ok(merged)
     }
 
-    /// `IPlayerService/GetRecentlyPlayedGames` — the games a single profile has
-    /// played in the trailing two weeks. Returns an empty list for private
-    /// profiles (the endpoint omits `games` rather than erroring).
+    /// `IPlayerService/GetRecentlyPlayedGames` — the games a single profile has played in the
+    /// trailing two weeks. Returns an empty list for private profiles (the endpoint omits
+    /// `games` rather than erroring).
     ///
     /// `GET 'https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v0001/?key=<KEY>&steamid=<ID>'`
     pub async fn get_recent_games(&self, steamid: &str) -> crate::Result<Vec<shared::RecentGame>> {
@@ -149,10 +150,19 @@ impl Steam<'_> {
 
     /// Fetch player summaries for `ids` in chunks of 100 (the endpoint's per-call limit).
     async fn summaries_for(&self, ids: &[&str]) -> crate::Result<Vec<PlayerSummary>> {
-        let mut summaries = Vec::with_capacity(ids.len());
-        for chunk in ids.chunks(100) {
-            summaries.extend(self.get_player_summaries(chunk).await?);
-        }
+        let summaries = futures::future::join_all(ids.chunks(100).map(|chunk| async move {
+            let summary = self
+                .get_player_summaries(chunk)
+                .await
+                .inspect_err(|e| warn!(steam_ids = ?chunk, "Failed to fetch plaer summary: {e}"))?;
+            Ok::<_, crate::Error>(summary)
+        }))
+        .await
+        .into_iter()
+        .filter_map(|r| r.ok())
+        .flatten()
+        .collect::<Vec<_>>();
+
         Ok(summaries)
     }
 

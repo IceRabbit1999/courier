@@ -165,3 +165,9 @@ pub fn detect_system_locale() -> Option<String> {
 pub fn message(key: &str) -> String {
     I18N.read().get_message(key, None)
 }
+
+/// The active locale (one of [`SUPPORTED_LOCALES`]). Used to pick the right
+/// localized rows when querying stored reference data.
+pub fn current_locale() -> String {
+    I18N.read().current_locale.clone()
+}

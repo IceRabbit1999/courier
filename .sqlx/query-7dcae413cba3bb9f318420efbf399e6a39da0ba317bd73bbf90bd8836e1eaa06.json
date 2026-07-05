@@ -1,0 +1,33 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT h.id AS \"id!\", COALESCE(hn.display_name, h.internal_name) AS \"name!\"\n             FROM heroes h LEFT JOIN hero_names hn ON hn.hero_id = h.id AND hn.locale = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "heroes",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "name!",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "7dcae413cba3bb9f318420efbf399e6a39da0ba317bd73bbf90bd8836e1eaa06"
+}

@@ -1,0 +1,362 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT player_slot, account_id, hero_id, personaname, kills, deaths, assists, last_hits, denies,\n                    gold_per_min, xp_per_min, level, net_worth, hero_damage, tower_damage, hero_healing,\n                    item_0, item_1, item_2, item_3, item_4, item_5, backpack_0, backpack_1, backpack_2, item_neutral, item_neutral2,\n                    aghanims_scepter, aghanims_shard\n             FROM match_players WHERE match_id = ? ORDER BY player_slot ASC",
+  "describe": {
+    "columns": [
+      {
+        "name": "player_slot",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "player_slot"
+          }
+        }
+      },
+      {
+        "name": "account_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "account_id"
+          }
+        }
+      },
+      {
+        "name": "hero_id",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "hero_id"
+          }
+        }
+      },
+      {
+        "name": "personaname",
+        "ordinal": 3,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "personaname"
+          }
+        }
+      },
+      {
+        "name": "kills",
+        "ordinal": 4,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "kills"
+          }
+        }
+      },
+      {
+        "name": "deaths",
+        "ordinal": 5,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "deaths"
+          }
+        }
+      },
+      {
+        "name": "assists",
+        "ordinal": 6,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "assists"
+          }
+        }
+      },
+      {
+        "name": "last_hits",
+        "ordinal": 7,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "last_hits"
+          }
+        }
+      },
+      {
+        "name": "denies",
+        "ordinal": 8,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "denies"
+          }
+        }
+      },
+      {
+        "name": "gold_per_min",
+        "ordinal": 9,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "gold_per_min"
+          }
+        }
+      },
+      {
+        "name": "xp_per_min",
+        "ordinal": 10,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "xp_per_min"
+          }
+        }
+      },
+      {
+        "name": "level",
+        "ordinal": 11,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "level"
+          }
+        }
+      },
+      {
+        "name": "net_worth",
+        "ordinal": 12,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "net_worth"
+          }
+        }
+      },
+      {
+        "name": "hero_damage",
+        "ordinal": 13,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "hero_damage"
+          }
+        }
+      },
+      {
+        "name": "tower_damage",
+        "ordinal": 14,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "tower_damage"
+          }
+        }
+      },
+      {
+        "name": "hero_healing",
+        "ordinal": 15,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "hero_healing"
+          }
+        }
+      },
+      {
+        "name": "item_0",
+        "ordinal": 16,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "item_0"
+          }
+        }
+      },
+      {
+        "name": "item_1",
+        "ordinal": 17,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "item_1"
+          }
+        }
+      },
+      {
+        "name": "item_2",
+        "ordinal": 18,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "item_2"
+          }
+        }
+      },
+      {
+        "name": "item_3",
+        "ordinal": 19,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "item_3"
+          }
+        }
+      },
+      {
+        "name": "item_4",
+        "ordinal": 20,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "item_4"
+          }
+        }
+      },
+      {
+        "name": "item_5",
+        "ordinal": 21,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "item_5"
+          }
+        }
+      },
+      {
+        "name": "backpack_0",
+        "ordinal": 22,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "backpack_0"
+          }
+        }
+      },
+      {
+        "name": "backpack_1",
+        "ordinal": 23,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "backpack_1"
+          }
+        }
+      },
+      {
+        "name": "backpack_2",
+        "ordinal": 24,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "backpack_2"
+          }
+        }
+      },
+      {
+        "name": "item_neutral",
+        "ordinal": 25,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "item_neutral"
+          }
+        }
+      },
+      {
+        "name": "item_neutral2",
+        "ordinal": 26,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "item_neutral2"
+          }
+        }
+      },
+      {
+        "name": "aghanims_scepter",
+        "ordinal": 27,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "aghanims_scepter"
+          }
+        }
+      },
+      {
+        "name": "aghanims_shard",
+        "ordinal": 28,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "match_players",
+            "name": "aghanims_shard"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "68e1c469be6a8867a3a5afd1ab0884c19e3b990db16d4fbe2bddb6f078ed852f"
+}

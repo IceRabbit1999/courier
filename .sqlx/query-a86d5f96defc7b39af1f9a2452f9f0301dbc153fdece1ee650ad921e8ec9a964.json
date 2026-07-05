@@ -1,0 +1,33 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT i.id AS \"id!\", COALESCE(inm.display_name, i.short_name) AS \"name!\"\n             FROM items i LEFT JOIN item_names inm ON inm.item_id = i.id AND inm.locale = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id!",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "items",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "name": "name!",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "a86d5f96defc7b39af1f9a2452f9f0301dbc153fdece1ee650ad921e8ec9a964"
+}

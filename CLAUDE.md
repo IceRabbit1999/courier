@@ -38,9 +38,9 @@ Cargo workspace, edition 2024. Crates under `crates/`:
 - **`ui`** — all egui rendering and app state. The bulk of the code lives here.
 - **`configs`** — global config + persistence.
 - **`i18n`** — Fluent-based localization.
-- **`shared`** — domain models (`models.rs`) and shared error types.
+- **`shared`** — domain models (`model/`: `friend`, `hero`, `item`, `matches`) and shared error types.
 - **`storage`** — SQLite via `sqlx`. Owns the connection pool and migrations. See below.
-- **`plugin`** — currently a placeholder/scaffold (default cargo template; a `plugin-core` crate was recently removed). Treat as WIP.
+- **`plugin`** — the network layer: one shared `reqwest`-based `Client` plus typed API clients (Steam, Stratz, OpenDota). See below.
 
 ### UI state machine (`crates/ui/src/app.rs`)
 
@@ -52,13 +52,13 @@ Each screen is a struct in `crates/ui/src/screens/` implementing the `Screen` tr
 
 ### Async bridge (`crates/ui/src/async_bridge.rs`)
 
-UI code never awaits. `AsyncBridge` (cloneable) wraps the tokio handle + an `mpsc::UnboundedSender<TaskResult>`. Call `bridge.spawn(future)` to run background work; the future's `TaskResult` is sent back over the channel and `ctx.request_repaint()` wakes the UI. `App::ui` drains the receiver each frame (`self.rx.try_recv()`) and routes results through `handle_task_result`. **To add a background operation:** add a variant to the `TaskResult` enum, spawn via the bridge, and handle the variant in `handle_task_result`. (Both are currently stubs awaiting real network tasks.) Toasts use the same channel pattern via `ToastSender`/`ToastEvent`.
+UI code never awaits. `AsyncBridge` (cloneable) wraps the tokio handle + an `mpsc::UnboundedSender<TaskResult>`. Call `bridge.spawn(future)` to run background work; the future's `TaskResult` is sent back over the channel and `ctx.request_repaint()` wakes the UI. `App::ui` drains the receiver each frame (`self.rx.try_recv()`) and routes results through `handle_task_result`. Spawned futures return `TaskOutcome = Result<TaskResult, snafu::Whatever>`: attach context to `plugin`/`storage` errors with `whatever_context` then `?`, and the bridge collapses any `Err` into `TaskResult::TaskFailed(msg)`. **To add a background operation:** add a `TaskResult` variant, spawn via the bridge returning that variant, and handle it in `handle_task_result`. Toasts use the same channel pattern via `ToastSender`/`ToastEvent`.
 
 ### Config (`crates/configs/src/lib.rs`)
 
 Two layers, both global `LazyLock<RwLock<…>>` singletons:
 - **`Bootstrap`** (`~/Courier/bootstrap.toml`) — stores the foundational paths: `app_path` (where `config.toml` lives; `is_first_launch()` is true when unset) and `storage_path` (where the SQLite DB lives; defaults to `~/.courier/data`, independent of `app_path`). Each path has a `set_*` and a `migrate_*_path` (move existing contents to a new dir, then persist).
-- **`AppConfig`** (`<app_path>/config.toml`) — the real settings tree (`general`, `appearance`, `tracking`, `games.dota2`, `notification`, `secrets`). Built via the `config` crate, layering the TOML file over `COURIER_`-prefixed env vars. Every field is `#[serde(default)]` so partial files load.
+- **`AppConfig`** (`<app_path>/config.toml`) — the real settings tree (`version`, `general`, `appearance`, `tracking`, `games.dota2`, `friends`, `matches`, `network`, `notification`, `secrets`). Built via the `config` crate, layering the TOML file over `COURIER_`-prefixed env vars. Every field is `#[serde(default)]` so partial files load. `network.proxy` (optional URL) is what `plugin::Client::new` uses for all outbound requests.
 
 `secrets` (`SecretsConfig`) holds BYOK API credentials (`steam_web_api_key`, `stratz_api_token`, `opendota_api_key`) — all `Option<String>`, no defaults shipped. This is the home for any new secret; don't scatter keys into per-game sections.
 
@@ -66,7 +66,15 @@ Access pattern: `configs::read()` for a read guard, `configs::update(|cfg| …)`
 
 ### Storage (`crates/storage/src/lib.rs`)
 
-`Storage` wraps a `sqlx::SqlitePool` opened (create-if-missing) at `configs::storage_path()/courier.db`, running embedded migrations from `crates/storage/migrations/` via `sqlx::migrate!`. Opened in `main.rs` with `runtime.block_on(...)` and owned by `ui::App`; future background tasks get the pool from there. Use the runtime query API (`sqlx::query(...)`), not the compile-time-checked `query!` macros, so there's no `DATABASE_URL` build dependency. **New tables go in a new numbered migration file** — never edit an applied one. Changing `storage_path` at runtime closes the pool, calls `configs::migrate_storage_path`, then reopens (`App::migrate_storage`); the pool must be closed before the DB file can move.
+`Storage` wraps a `sqlx::SqlitePool` opened (create-if-missing) at `configs::storage_path()/courier.db`, running embedded migrations from `crates/storage/migrations/` via `sqlx::migrate!`. Opened in `main.rs` with `runtime.block_on(...)` and owned by `ui::App`; future background tasks get the pool from there. Use the compile-time-checked `query!` macros if possible to get the compile-time check benefit. **New tables go in a new numbered migration file** — never edit an applied one (migrations are incremental, `0001`–`0006`). Also maintain a single migration file mirroring the entire/all current db schema. Changing `storage_path` at runtime closes the pool, calls `configs::migrate_storage_path`, then reopens (`App::migrate_storage`); the pool must be closed before the DB file can move.
+
+### Plugin / network layer (`crates/plugin/src/`)
+
+One shared `Client` (a single `reqwest::Client`, built proxy-aware from `NetworkConfig::proxy`) backs every API call. Two request paths:
+- **REST** — implement the `Endpoint` trait (`url`, optional `query`/`method`/`body`, associated `Response: DeserializeOwned`) and call `client.execute(endpoint)`.
+- **GraphQL** — `client.graphql::<Q>(url, token, vars)` runs a `graphql_client`-generated query through the same client; GraphQL replies are HTTP 200 even on failure, so the `errors` array is surfaced as `Error::GraphQl`.
+
+Typed clients are obtained from the `Client` (`client.steam(key)`, `client.stratz(token)`, `client.opendota(api_key)`); each is a thin borrow holding its credential. OpenDota keys players by Steam32 `account_id` (`steam64 - 76561197960265728`). Errors are `snafu`-based (`crates/plugin/src/error.rs`).
 
 ### i18n (`crates/i18n/src/lib.rs`)
 

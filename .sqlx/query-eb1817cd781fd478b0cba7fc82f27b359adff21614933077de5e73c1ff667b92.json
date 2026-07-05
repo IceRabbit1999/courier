@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM match_players WHERE match_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "eb1817cd781fd478b0cba7fc82f27b359adff21614933077de5e73c1ff667b92"
+}

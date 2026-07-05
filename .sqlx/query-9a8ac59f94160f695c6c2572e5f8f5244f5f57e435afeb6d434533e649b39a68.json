@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO match_details\n             (match_id, radiant_win, duration, start_time, game_mode, lobby_type, radiant_score, dire_score, first_blood_time)\n             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)\n             ON CONFLICT(match_id) DO UPDATE SET\n                radiant_win = excluded.radiant_win, duration = excluded.duration, start_time = excluded.start_time,\n                game_mode = excluded.game_mode, lobby_type = excluded.lobby_type, radiant_score = excluded.radiant_score,\n                dire_score = excluded.dire_score, first_blood_time = excluded.first_blood_time",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 9
+    },
+    "nullable": []
+  },
+  "hash": "9a8ac59f94160f695c6c2572e5f8f5244f5f57e435afeb6d434533e649b39a68"
+}
