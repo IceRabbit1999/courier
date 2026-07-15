@@ -24,10 +24,10 @@ futures = "0.3"
 reqwest = { version = "0.13", features = ["blocking"] }
 
 # UI
-eframe = { version = "0.34.3", default-features = true }
-egui = { version = "0.34.3" }
+eframe = { version = "0.35.0", default-features = true }
+egui = { version = "0.35.0" }
 egui-phosphor = "0.12"
-egui_extras = { version = "0.34", features = ["all_loaders"] }
+egui_extras = { version = "0.35", features = ["all_loaders"] }
 image = { version = "0.25", features = ["jpeg", "png"] }
 
 # Serialization

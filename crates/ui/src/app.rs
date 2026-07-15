@@ -115,7 +115,12 @@ pub struct App {
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>, runtime: tokio::runtime::Handle, storage: storage::Storage, client: plugin::Client) -> Self {
         let mut fonts = egui::FontDefinitions::default();
-        egui_phosphor::add_to_fonts(&mut fonts, egui_phosphor::Variant::Regular);
+        fonts
+            .font_data
+            .insert("phosphor".to_owned(), egui::FontData::from_static(egui_phosphor::Variant::Regular.font_bytes()).into());
+        if let Some(family) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
+            family.insert(1, "phosphor".to_owned());
+        }
 
         #[cfg(feature = "cjk")]
         {
@@ -556,7 +561,7 @@ impl eframe::App for App {
 
         match &mut self.state {
             AppState::Setup(setup) => {
-                egui::CentralPanel::default().show_inside(ui, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
                     setup.show(ui);
                 });
 
@@ -600,7 +605,7 @@ impl eframe::App for App {
             AppState::Main(main) => {
                 main.toasts.drain(&mut self.toast_rx);
 
-                egui::Panel::top("menu_bar").show_inside(ui, |ui| {
+                egui::Panel::top("menu_bar").show(ui, |ui| {
                     if let Some(action) = menu_bar::show(ui) {
                         Self::handle_menu_action(main, action);
                     }
@@ -619,11 +624,11 @@ impl eframe::App for App {
                     .show_separator_line(false)
                     .exact_size(animated_width)
                     .frame(sidebar_frame)
-                    .show_inside(ui, |ui| {
+                    .show(ui, |ui| {
                         sidebar::show(ui, &mut main.route, &mut main.sidebar_collapsed);
                     });
 
-                egui::CentralPanel::default().show_inside(ui, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
                     let settings_actions = match main.route {
                         Route::Dashboard => {
                             main.home.show(ui);
