@@ -1,0 +1,26 @@
+[telegram]
+# Required — from @BotFather. The hub refuses to start without it.
+token = ""
+
+[server]
+bind = "0.0.0.0:6969"
+# Both accept an absolute path (a mounted volume, say) as well.
+data_path = "data"
+log_path = "logs"
+# Early-access gate. When set, `/link/new` requires clients to send this exact
+# invite code (as a bearer credential) before a chat can be linked. Leave it
+# unset to run an open hub — a self-hoster on their own box wants that.
+# access_code = "some-shared-secret"
+
+[tracking]
+# How often offline-mode subscribers are polled, in minutes.
+poll_interval_mins = 10
+# How many recent matches to pull per tracked account each poll.
+fetch_limit = 1
+
+[network]
+# proxy = "http://127.0.0.1:7890"
+
+[secrets]
+# Strongly recommended: the keyless OpenDota quota won't carry many subscribers.
+# opendota_api_key = ""

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM hub_subscribers WHERE subscriber_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "96be34e366b82a1ea9de29624bc325f36e04d3ee5b8c9b1a4f6e730535946182"
+}

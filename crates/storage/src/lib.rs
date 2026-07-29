@@ -16,6 +16,9 @@ use tracing::info;
 
 pub mod error;
 pub use error::*;
+pub mod hub;
+mod token;
+pub use hub::HubStore;
 
 const DB_FILE: &str = "courier.db";
 
@@ -27,6 +30,16 @@ static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("./migrations");
 #[derive(Clone)]
 pub struct Storage {
     pool: SqlitePool,
+}
+
+/// A follow enrolled in background tracking, with just the fields the tracker
+/// loop needs plus its watermark (the newest match id already pushed).
+#[derive(Debug, Clone)]
+pub struct TrackedFollow {
+    pub steam_id: String,
+    pub persona_name: String,
+    pub profile_url: String,
+    pub last_tracked_match_id: Option<i64>,
 }
 
 impl Storage {
@@ -179,8 +192,7 @@ impl Storage {
         .await
         .context(QuerySnafu)?;
 
-        let mut by_friend: HashMap<String, Vec<RecentGame>> = HashMap::new();
-        for row in rows {
+        Ok(rows.into_iter().fold(HashMap::new(), |mut by_friend: HashMap<_, Vec<_>>, row| {
             by_friend.entry(row.steam_id).or_default().push(RecentGame {
                 app_id: row.app_id,
                 name: row.name,
@@ -188,8 +200,8 @@ impl Storage {
                 playtime_forever: row.playtime_forever,
                 img_icon_url: row.img_icon_url,
             });
-        }
-        Ok(by_friend)
+            by_friend
+        }))
     }
 
     /// The stored friend list, online friends first then alphabetical.
@@ -231,8 +243,7 @@ impl Storage {
         .await
         .context(QuerySnafu)?;
 
-        let mut by_follow: HashMap<String, Vec<RecentGame>> = HashMap::new();
-        for row in rows {
+        Ok(rows.into_iter().fold(HashMap::new(), |mut by_follow: HashMap<_, Vec<_>>, row| {
             by_follow.entry(row.steam_id).or_default().push(RecentGame {
                 app_id: row.app_id,
                 name: row.name,
@@ -240,14 +251,14 @@ impl Storage {
                 playtime_forever: row.playtime_forever,
                 img_icon_url: row.img_icon_url,
             });
-        }
-        Ok(by_follow)
+            by_follow
+        }))
     }
 
     /// The stored follow list, online players first then alphabetical.
     pub async fn list_follows(&self) -> Result<Vec<Follow>> {
         let rows = sqlx::query!(
-            r#"SELECT steam_id AS "steam_id!", added_at, persona_name, avatar, profile_url, persona_state, last_log_off, game_extra_info
+            r#"SELECT steam_id AS "steam_id!", added_at, persona_name, avatar, profile_url, persona_state, last_log_off, game_extra_info, tracked
                FROM follows ORDER BY (persona_state != 0) DESC, persona_name COLLATE NOCASE ASC"#,
         )
         .fetch_all(&self.pool)
@@ -268,8 +279,40 @@ impl Storage {
                 persona_state: PersonaState::from_i32(row.persona_state as i32),
                 last_log_off: row.last_log_off,
                 game_extra_info: row.game_extra_info,
+                tracked: row.tracked != 0,
             })
             .collect())
+    }
+
+    /// Toggle whether one follow is enrolled in background match tracking.
+    pub async fn set_follow_tracked(&self, steam_id: &str, tracked: bool) -> Result<()> {
+        let tracked = i64::from(tracked);
+        sqlx::query!("UPDATE follows SET tracked = ? WHERE steam_id = ?", tracked, steam_id)
+            .execute(&self.pool)
+            .await
+            .context(QuerySnafu)?;
+        Ok(())
+    }
+
+    /// The follows enrolled in tracking, with the fields the tracker loop needs.
+    pub async fn list_tracked_follows(&self) -> Result<Vec<TrackedFollow>> {
+        sqlx::query_as!(
+            TrackedFollow,
+            r#"SELECT steam_id AS "steam_id!", persona_name, profile_url, last_tracked_match_id
+               FROM follows WHERE tracked != 0"#,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .context(QuerySnafu)
+    }
+
+    /// Advance a tracked follow's watermark to the newest match id already handled.
+    pub async fn set_tracked_watermark(&self, steam_id: &str, match_id: i64) -> Result<()> {
+        sqlx::query!("UPDATE follows SET last_tracked_match_id = ? WHERE steam_id = ?", match_id, steam_id)
+            .execute(&self.pool)
+            .await
+            .context(QuerySnafu)?;
+        Ok(())
     }
 
     /// Upsert `follows` rows: inserts new players, and for existing ones updates
@@ -450,38 +493,19 @@ impl Storage {
 
     /// One friend's stored match summaries, newest first.
     pub async fn list_match_summaries(&self, steam_id: &str) -> Result<Vec<MatchSummary>> {
-        let rows = sqlx::query!(
-            r#"SELECT match_id, hero_id, player_slot, radiant_win, start_time, duration, game_mode, lobby_type,
-                    kills, deaths, assists, gold_per_min, xp_per_min, last_hits, hero_damage, tower_damage, hero_healing
+        sqlx::query_as!(
+            MatchSummary,
+            r#"SELECT match_id, hero_id AS "hero_id: i32", player_slot AS "player_slot: i32", radiant_win AS "radiant_win: bool",
+                    start_time, duration AS "duration: i32", game_mode AS "game_mode: i32", lobby_type AS "lobby_type: i32",
+                    kills AS "kills: i32", deaths AS "deaths: i32", assists AS "assists: i32",
+                    gold_per_min AS "gold_per_min: i32", xp_per_min AS "xp_per_min: i32", last_hits AS "last_hits: i32",
+                    hero_damage AS "hero_damage: i32", tower_damage AS "tower_damage: i32", hero_healing AS "hero_healing: i32"
              FROM match_summaries WHERE steam_id = ? ORDER BY start_time DESC"#,
             steam_id,
         )
         .fetch_all(&self.pool)
         .await
-        .context(QuerySnafu)?;
-
-        Ok(rows
-            .into_iter()
-            .map(|row| MatchSummary {
-                match_id: row.match_id,
-                hero_id: row.hero_id as i32,
-                player_slot: row.player_slot as i32,
-                radiant_win: row.radiant_win != 0,
-                start_time: row.start_time,
-                duration: row.duration as i32,
-                game_mode: row.game_mode as i32,
-                lobby_type: row.lobby_type as i32,
-                kills: row.kills as i32,
-                deaths: row.deaths as i32,
-                assists: row.assists as i32,
-                gold_per_min: row.gold_per_min as i32,
-                xp_per_min: row.xp_per_min as i32,
-                last_hits: row.last_hits as i32,
-                hero_damage: row.hero_damage as i32,
-                tower_damage: row.tower_damage as i32,
-                hero_healing: row.hero_healing as i32,
-            })
-            .collect())
+        .context(QuerySnafu)
     }
 
     /// Upsert the full detail for one match: the header row plus its players
@@ -622,6 +646,19 @@ impl Storage {
                 item_neutral2: row.item_neutral2 as i32,
                 aghanims_scepter: row.aghanims_scepter != 0,
                 aghanims_shard: row.aghanims_shard != 0,
+                // AI-context fields are not persisted; they exist only on a fresh
+                // OpenDota fetch, and the desktop UI never reads them.
+                computed_mmr: None,
+                rank_tier: None,
+                hero_variant: 0,
+                lane_role: None,
+                teamfight_participation: None,
+                observers_placed: 0,
+                sentries_placed: 0,
+                camps_stacked: 0,
+                creeps_stacked: 0,
+                purchase: HashMap::new(),
+                purchase_log: Vec::new(),
             })
             .collect::<Vec<_>>();
 
@@ -636,6 +673,8 @@ impl Storage {
             dire_score: head.dire_score as i32,
             first_blood_time: head.first_blood_time as i32,
             players,
+            teamfights: Vec::new(),
+            chat: Vec::new(),
         }))
     }
 
@@ -651,33 +690,21 @@ impl Storage {
         .await
         .context(QuerySnafu)?;
 
-        let mut map = HashMap::with_capacity(rows.len());
-        for row in rows {
-            map.insert(row.id as i32, row.name);
-        }
-        Ok(map)
+        Ok(rows.into_iter().map(|row| (row.id as i32, row.name)).collect())
     }
 
     /// Hero internal names keyed by hero id (e.g. `npc_dota_hero_antimage`). Used
     /// to build CDN icon URLs; locale-independent.
     pub async fn hero_slugs(&self) -> Result<HashMap<i32, String>> {
         let rows = sqlx::query!("SELECT id, internal_name FROM heroes").fetch_all(&self.pool).await.context(QuerySnafu)?;
-        let mut map = HashMap::with_capacity(rows.len());
-        for row in rows {
-            map.insert(row.id as i32, row.internal_name);
-        }
-        Ok(map)
+        Ok(rows.into_iter().map(|row| (row.id as i32, row.internal_name)).collect())
     }
 
     /// Item short names keyed by item id (e.g. `blink`). Used to build CDN icon
     /// URLs; locale-independent.
     pub async fn item_slugs(&self) -> Result<HashMap<i32, String>> {
         let rows = sqlx::query!("SELECT id, short_name FROM items").fetch_all(&self.pool).await.context(QuerySnafu)?;
-        let mut map = HashMap::with_capacity(rows.len());
-        for row in rows {
-            map.insert(row.id as i32, row.short_name);
-        }
-        Ok(map)
+        Ok(rows.into_iter().map(|row| (row.id as i32, row.short_name)).collect())
     }
 
     /// Localized item names keyed by item id, falling back to the short name.
@@ -691,11 +718,7 @@ impl Storage {
         .await
         .context(QuerySnafu)?;
 
-        let mut map = HashMap::with_capacity(rows.len());
-        for row in rows {
-            map.insert(row.id as i32, row.name);
-        }
-        Ok(map)
+        Ok(rows.into_iter().map(|row| (row.id as i32, row.name)).collect())
     }
 
     /// Last successful sync time (unix seconds) for `key`, if any.

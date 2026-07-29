@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE hub_subscribers SET offline_mode = ?, locale = ? WHERE subscriber_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "8151b6c814159133144106d8fd5d789fc7d20b499472e65f5b92c0fb91c7fceb"
+}

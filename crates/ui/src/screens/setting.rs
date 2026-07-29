@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use configs::{ThemePreference, UpdateChannel};
 use egui::Color32;
+use tracing::error;
 
 use crate::{
     components::{search, widgets},
@@ -14,6 +15,15 @@ pub enum SettingsAction {
     StoragePathChanged(PathBuf),
     ProxyChanged(Option<String>),
     SyncStaticData,
+    /// Begin linking the official Telegram bot.
+    ConnectTelegram,
+    /// Revoke the official Telegram link.
+    DisconnectTelegram,
+    /// Send a Telegram test push.
+    TestTelegram,
+    /// Upload the tracking snapshot (tracked follows, locale, hero names,
+    /// offline flag) to the hub.
+    SyncTelegram,
     Reset,
 }
 
@@ -74,6 +84,18 @@ const NOTIFICATIONS: Section = Section {
         "settings-desktop-notifications-enabled",
         "settings-desktop-notifications-sound",
         "settings-notify-new-match",
+    ],
+};
+const TELEGRAM: Section = Section {
+    keys: &[
+        "settings-telegram",
+        "settings-telegram-enabled",
+        "settings-telegram-notify-new-match",
+        "settings-telegram-hub-url",
+        "settings-telegram-access-code",
+        "settings-telegram-connect",
+        "settings-telegram-offline-mode",
+        "settings-telegram-sync",
     ],
 };
 const UPDATES: Section = Section {
@@ -260,6 +282,19 @@ impl SettingScreen {
                     shown_any = true;
                 }
 
+                if Self::section_visible(&query, &TELEGRAM) {
+                    let linked = config.secrets.telegram_subscriber_secret.is_some();
+                    let (telegram_changed, telegram_action) = Self::telegram_section(ui, &mut notification, linked);
+                    if telegram_changed {
+                        changed = true;
+                    }
+                    if let Some(a) = telegram_action {
+                        actions.push(a);
+                    }
+                    ui.add_space(spacing::MEDIUM);
+                    shown_any = true;
+                }
+
                 if Self::section_visible(&query, &UPDATES) {
                     if Self::updates_section(ui, &mut general) {
                         changed = true;
@@ -295,7 +330,6 @@ impl SettingScreen {
 
                     ui.add_space(spacing::MEDIUM);
 
-                    // Reset button with double confirmation
                     if self.reset_confirming {
                         ui.label(
                             egui::RichText::new(i18n::message("settings-reset-confirm-message"))
@@ -332,14 +366,13 @@ impl SettingScreen {
             });
         });
 
-        // Sync language change back
         if current_language != Self::language_code_to_static(&general.language) {
             general.language = current_language.to_owned();
             changed = true;
         }
 
-        // Sync string fields back to config
-        games.dota2.steam_id = if self.dota2_steam_id.is_empty() { None } else { Some(self.dota2_steam_id.clone()) };
+        // The text-edit buffers live on `self`, so they only reach the config here.
+        games.dota2.steam_id = Self::optional(&self.dota2_steam_id);
 
         let network = configs::NetworkConfig {
             proxy: Self::optional(&self.proxy),
@@ -349,6 +382,9 @@ impl SettingScreen {
             steam_web_api_key: Self::optional(&self.steam_web_api_key),
             stratz_api_token: Self::optional(&self.stratz_api_token),
             opendota_api_key: Self::optional(&self.opendota_api_key),
+            // Managed by the Telegram connect flow, not edited here — preserve them.
+            telegram_subscriber_id: config.secrets.telegram_subscriber_id.clone(),
+            telegram_subscriber_secret: config.secrets.telegram_subscriber_secret.clone(),
         };
 
         if changed
@@ -387,12 +423,12 @@ impl SettingScreen {
         if self.app_path_changed() {
             let new_path = PathBuf::from(&self.app_path);
             if let Err(e) = configs::migrate_app_path(new_path) {
-                tracing::error!("Failed to migrate app data: {e}");
+                error!("Failed to migrate app data: {e}");
             }
         }
 
         if let Err(e) = configs::save() {
-            tracing::error!("Failed to save config: {e}");
+            error!("Failed to save config: {e}");
         }
     }
 
@@ -616,7 +652,6 @@ impl SettingScreen {
                     changed |= Self::grid_slider_row(ui, &i18n::message("settings-appearance-animation-hover"), &mut appearance.animation_hover_speed, 1.0..=30.0);
                     changed |= Self::grid_slider_row(ui, &i18n::message("settings-appearance-toast-max-width"), &mut appearance.toast_max_width, 200.0..=600.0);
 
-                    // Toast duration (u64)
                     ui.label(
                         egui::RichText::new(i18n::message("settings-appearance-toast-duration"))
                             .size(font_size::BODY)
@@ -696,7 +731,6 @@ impl SettingScreen {
             ui.label(egui::RichText::new(i18n::message("settings-games")).size(font_size::LARGE).color(palette.text));
             ui.add_space(spacing::SMALL);
 
-            // Dota 2 sub-section
             ui.label(egui::RichText::new(i18n::message("settings-dota2")).size(font_size::BODY).strong().color(palette.text));
             ui.add_space(spacing::SMALL);
 
@@ -892,6 +926,141 @@ impl SettingScreen {
             });
         });
         changed
+    }
+
+    /// The Telegram section: enable/notify toggles, the hub URL (the official
+    /// hub by default, any self-hosted one otherwise), and the
+    /// connect/test/disconnect flow.
+    /// `linked` reflects whether a subscriber credential is stored. Returns
+    /// `(config_changed, action)`.
+    fn telegram_section(ui: &mut egui::Ui, notification: &mut configs::NotificationsConfig, linked: bool) -> (bool, Option<SettingsAction>) {
+        let palette = colors();
+        let mut changed = false;
+        let mut action = None;
+        Self::section_frame(ui, |ui| {
+            ui.label(egui::RichText::new(i18n::message("settings-telegram")).size(font_size::LARGE).color(palette.text));
+            ui.label(
+                egui::RichText::new(i18n::message("settings-telegram-description"))
+                    .size(font_size::SMALL)
+                    .color(palette.text_muted),
+            );
+            ui.add_space(spacing::SMALL);
+
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new(i18n::message("settings-telegram-enabled")).size(font_size::BODY).color(palette.text));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if widgets::toggle(ui, &mut notification.telegram.enabled).changed() {
+                        changed = true;
+                    }
+                });
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(
+                    egui::RichText::new(i18n::message("settings-telegram-notify-new-match"))
+                        .size(font_size::BODY)
+                        .color(palette.text),
+                );
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if widgets::toggle(ui, &mut notification.telegram.notify_new_match).changed() {
+                        changed = true;
+                    }
+                });
+            });
+
+            ui.add_space(spacing::SMALL);
+
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new(i18n::message("settings-telegram-hub-url")).size(font_size::BODY).color(palette.text));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui
+                        .add(
+                            egui::TextEdit::singleline(&mut notification.telegram.hub_base_url)
+                                .desired_width(240.0)
+                                .font(egui::FontId::proportional(font_size::BODY)),
+                        )
+                        .changed()
+                    {
+                        changed = true;
+                    }
+                });
+            });
+
+            // The config field is `Option<String>`; the edit buffer round-trips
+            // through it each frame, so an empty box persists as `None`.
+            let mut access_code = notification.telegram.access_code.clone().unwrap_or_default();
+            ui.horizontal(|ui| {
+                ui.label(
+                    egui::RichText::new(i18n::message("settings-telegram-access-code"))
+                        .size(font_size::BODY)
+                        .color(palette.text),
+                );
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui
+                        .add(
+                            egui::TextEdit::singleline(&mut access_code)
+                                .desired_width(240.0)
+                                .hint_text(i18n::message("settings-telegram-access-code-hint"))
+                                .font(egui::FontId::proportional(font_size::BODY)),
+                        )
+                        .changed()
+                    {
+                        notification.telegram.access_code = Self::optional(&access_code);
+                        changed = true;
+                    }
+                });
+            });
+
+            ui.horizontal(|ui| {
+                ui.label(
+                    egui::RichText::new(i18n::message("settings-telegram-offline-mode"))
+                        .size(font_size::BODY)
+                        .color(palette.text),
+                );
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if widgets::toggle(ui, &mut notification.telegram.offline_mode).changed() {
+                        changed = true;
+                        // The flag only reaches the hub inside a sync, so
+                        // toggling triggers one (when there's a link to sync to).
+                        if linked {
+                            action = Some(SettingsAction::SyncTelegram);
+                        }
+                    }
+                });
+            });
+            ui.label(
+                egui::RichText::new(i18n::message("settings-telegram-offline-mode-description"))
+                    .size(font_size::SMALL)
+                    .color(palette.text_muted),
+            );
+
+            ui.add_space(spacing::SMALL);
+
+            ui.horizontal(|ui| {
+                let status_key = if linked { "settings-telegram-linked" } else { "settings-telegram-not-linked" };
+                let status_color = if linked { palette.success } else { palette.text_muted };
+                ui.label(egui::RichText::new(i18n::message(status_key)).size(font_size::SMALL).color(status_color));
+
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if linked {
+                        if widgets::ghost_button(ui, i18n::message("settings-telegram-disconnect")).clicked() {
+                            action = Some(SettingsAction::DisconnectTelegram);
+                        }
+                        ui.add_space(spacing::SMALL);
+                        if widgets::ghost_button(ui, i18n::message("settings-telegram-test")).clicked() {
+                            action = Some(SettingsAction::TestTelegram);
+                        }
+                        ui.add_space(spacing::SMALL);
+                        if widgets::ghost_button(ui, i18n::message("settings-telegram-sync")).clicked() {
+                            action = Some(SettingsAction::SyncTelegram);
+                        }
+                    } else if widgets::primary_button(ui, i18n::message("settings-telegram-connect")).clicked() {
+                        action = Some(SettingsAction::ConnectTelegram);
+                    }
+                });
+            });
+        });
+        (changed, action)
     }
 
     fn updates_section(ui: &mut egui::Ui, general: &mut configs::GeneralConfig) -> bool {

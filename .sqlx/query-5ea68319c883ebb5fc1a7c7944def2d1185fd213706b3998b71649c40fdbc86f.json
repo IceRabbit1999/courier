@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO hub_subscribers (subscriber_id, secret_hash, chat_id, created_at) VALUES (?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "5ea68319c883ebb5fc1a7c7944def2d1185fd213706b3998b71649c40fdbc86f"
+}

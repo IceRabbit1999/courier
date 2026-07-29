@@ -211,6 +211,7 @@ impl Steam<'_> {
             last_log_off: summary.last_log_off,
             game_extra_info: summary.game_extra_info,
             recent_games,
+            tracked: false,
         })
     }
 
@@ -314,6 +315,7 @@ fn merge_follow_summaries(added_at: &HashMap<&str, i64>, summaries: Vec<PlayerSu
             last_log_off: summary.last_log_off,
             game_extra_info: summary.game_extra_info,
             recent_games: Vec::new(),
+            tracked: false,
         })
         .collect()
 }

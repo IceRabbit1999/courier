@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM hub_tracked_accounts WHERE subscriber_id = ? AND steam_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "aabea8aa72e694b00e0017471d9f1bb94bf47852529a9a4a1bab5bf8de1bd46c"
+}

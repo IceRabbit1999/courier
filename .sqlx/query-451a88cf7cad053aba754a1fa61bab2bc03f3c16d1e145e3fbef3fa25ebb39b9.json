@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT steam_id AS \"steam_id!\", persona_name, profile_url, last_tracked_match_id\n               FROM follows WHERE tracked != 0",
+  "describe": {
+    "columns": [
+      {
+        "name": "steam_id!",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "follows",
+            "name": "steam_id"
+          }
+        }
+      },
+      {
+        "name": "persona_name",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "follows",
+            "name": "persona_name"
+          }
+        }
+      },
+      {
+        "name": "profile_url",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "follows",
+            "name": "profile_url"
+          }
+        }
+      },
+      {
+        "name": "last_tracked_match_id",
+        "ordinal": 3,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "follows",
+            "name": "last_tracked_match_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 0
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "451a88cf7cad053aba754a1fa61bab2bc03f3c16d1e145e3fbef3fa25ebb39b9"
+}

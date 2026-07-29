@@ -28,6 +28,19 @@ pub enum TaskResult {
         hero_slugs: std::collections::HashMap<i32, String>,
         item_slugs: std::collections::HashMap<i32, String>,
     },
+    /// Background tracking found new matches for a tracked follow.
+    NewMatchesTracked { steam_id: String, count: usize },
+    /// A Telegram link handshake began: open `deep_link` and poll `token`.
+    TelegramLinkStarted { token: String, secret: String, deep_link: String },
+    /// The Telegram link completed; carries the subscriber credential to persist.
+    TelegramLinked { subscriber_id: String, secret: String },
+    /// A Telegram test push was delivered.
+    TelegramTestSent,
+    /// The tracking snapshot was uploaded to the hub; carries how many
+    /// tracked accounts it covered.
+    TelegramSynced { accounts: usize },
+    /// The Telegram subscriber was unlinked.
+    TelegramUnlinked,
     /// Any background task failed; carries the user-facing error message.
     TaskFailed(String),
 }
@@ -56,6 +69,16 @@ impl AsyncBridge {
         &self.toasts
     }
 
+    /// Push a [`TaskResult`] straight to the UI receiver and request a repaint.
+    /// Used by long-lived tasks (e.g. the tracker) that outlive a single
+    /// [`Self::spawn`] and report results as they occur rather than on completion.
+    pub fn send(&self, result: TaskResult) {
+        if let Err(e) = self.tx.send(result) {
+            error!("Failed to send task result to UI: {e}");
+        }
+        self.ctx.request_repaint();
+    }
+
     /// Spawn an async task.
     ///
     /// On `Ok` the [`TaskResult`] is forwarded as-is; on `Err` it is collapsed
@@ -68,10 +91,7 @@ impl AsyncBridge {
         let tx = self.tx.clone();
         let ctx = self.ctx.clone();
         self.runtime.spawn(async move {
-            let result = match future.await {
-                Ok(result) => result,
-                Err(e) => TaskResult::TaskFailed(e.to_string()),
-            };
+            let result = future.await.unwrap_or_else(|e| TaskResult::TaskFailed(e.to_string()));
             if let Err(e) = tx.send(result) {
                 error!("Failed to send task result to UI: {e}");
             }

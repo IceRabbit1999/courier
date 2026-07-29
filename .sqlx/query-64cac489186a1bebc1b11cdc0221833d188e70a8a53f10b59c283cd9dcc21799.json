@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT steam_id FROM hub_tracked_accounts WHERE subscriber_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "steam_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hub_tracked_accounts",
+            "name": "steam_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "64cac489186a1bebc1b11cdc0221833d188e70a8a53f10b59c283cd9dcc21799"
+}

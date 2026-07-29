@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO hub_pending_links (token_hash, secret_hash, created_at, subscriber_id) VALUES (?, ?, ?, NULL)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "93949b8f17a5218c034e7e7d94531d0f0db42c0c6fd19fb98d447d7a72d18b54"
+}

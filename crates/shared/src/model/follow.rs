@@ -13,6 +13,9 @@ pub struct Follow {
     pub last_log_off: Option<i64>,
     pub game_extra_info: Option<String>,
     pub recent_games: Vec<RecentGame>,
+    /// Whether this follow is enrolled in background match tracking. Only a subset
+    /// of follows are tracked; the rest are watch-list-only.
+    pub tracked: bool,
 }
 
 impl Follow {

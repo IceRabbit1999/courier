@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO hub_tracked_accounts (subscriber_id, steam_id, persona_name, last_match_id) VALUES (?, ?, ?, NULL)\n                   ON CONFLICT (subscriber_id, steam_id) DO UPDATE SET persona_name = excluded.persona_name",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "b2cd9eddd21268df4f272fdd45b373aec61ff6166a8f3a464fef27889e25fb02"
+}

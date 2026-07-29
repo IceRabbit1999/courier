@@ -8,7 +8,7 @@ use fluent_bundle::{FluentArgs, FluentResource, bundle::FluentBundle};
 use intl_memoizer::concurrent::IntlLangMemoizer;
 pub use loader::load_locale;
 use parking_lot::RwLock;
-use snafu::{Location, prelude::*};
+use snafu::{Snafu, whatever};
 use tracing::{error, warn};
 use unic_langid::LanguageIdentifier;
 
@@ -16,38 +16,16 @@ use unic_langid::LanguageIdentifier;
 pub const SUPPORTED_LOCALES: &[&str] = &["en", "zh-CN"];
 pub const DEFAULT_LOCALE: &str = "en";
 
-/// I18n errors
+/// I18n errors. Bundle loading is the only fallible path and its one caller just
+/// logs and skips the locale, so a single catch-all carries every failure rather
+/// than a variant nobody matches on.
 #[derive(Debug, Snafu)]
-#[snafu(visibility(pub))]
 pub enum Error {
-    #[snafu(display("Invalid locale '{locale}': failed to parse language identifier"))]
-    InvalidLocale {
-        locale: String,
-        #[snafu(implicit)]
-        location: Location,
-    },
-
-    #[snafu(display("Failed to load locale '{locale}': {reason}"))]
-    LoadLocale {
-        locale: String,
-        reason: String,
-        #[snafu(implicit)]
-        location: Location,
-    },
-
-    #[snafu(display("Failed to add resource for locale '{locale}': {reason}"))]
-    AddResource {
-        locale: String,
-        reason: String,
-        #[snafu(implicit)]
-        location: Location,
-    },
-
-    #[snafu(display("Message not found: '{key}'"))]
-    MessageNotFound {
-        key: String,
-        #[snafu(implicit)]
-        location: Location,
+    #[snafu(whatever, display("{message}"))]
+    Whatever {
+        message: String,
+        #[snafu(source(from(Box<dyn std::error::Error + Send + Sync>, Some)))]
+        source: Option<Box<dyn std::error::Error + Send + Sync>>,
     },
 }
 
@@ -80,34 +58,27 @@ impl I18nState {
     }
 
     fn load_bundle(locale: &str) -> Result<Bundle> {
-        let langid = locale
-            .parse::<LanguageIdentifier>()
-            .map_err(|_| InvalidLocaleSnafu { locale: locale.to_string() }.build())?;
+        let Ok(langid) = locale.parse::<LanguageIdentifier>() else {
+            whatever!("Invalid locale '{locale}': failed to parse language identifier");
+        };
 
         let source = load_locale(locale);
-        let resource = FluentResource::try_new(source).map_err(|(_, errs)| {
-            LoadLocaleSnafu {
-                locale: locale.to_string(),
-                reason: format!("{:?}", errs),
-            }
-            .build()
-        })?;
+        let resource = match FluentResource::try_new(source) {
+            Ok(resource) => resource,
+            Err((_, errs)) => whatever!("Failed to parse locale '{locale}' resource: {errs:?}"),
+        };
 
         let mut bundle = FluentBundle::new_concurrent(vec![langid]);
         bundle.set_use_isolating(false);
-        bundle.add_resource(resource).map_err(|errs| {
-            AddResourceSnafu {
-                locale: locale.to_string(),
-                reason: format!("{:?}", errs),
-            }
-            .build()
-        })?;
+        if let Err(errs) = bundle.add_resource(resource) {
+            whatever!("Failed to add resource for locale '{locale}': {errs:?}");
+        }
 
         Ok(bundle)
     }
 
-    fn get_message(&self, key: &str, args: Option<&FluentArgs>) -> String {
-        if let Some(bundle) = self.bundles.get(&self.current_locale)
+    fn get_message(&self, locale: &str, key: &str, args: Option<&FluentArgs>) -> String {
+        if let Some(bundle) = self.bundles.get(locale)
             && let Some(msg) = bundle.get_message(key)
             && let Some(pattern) = msg.value()
         {
@@ -119,7 +90,7 @@ impl I18nState {
         }
 
         // Fallback to default locale
-        if self.current_locale != DEFAULT_LOCALE
+        if locale != DEFAULT_LOCALE
             && let Some(bundle) = self.bundles.get(DEFAULT_LOCALE)
             && let Some(msg) = bundle.get_message(key)
             && let Some(pattern) = msg.value()
@@ -163,7 +134,15 @@ pub fn detect_system_locale() -> Option<String> {
 }
 
 pub fn message(key: &str) -> String {
-    I18N.read().get_message(key, None)
+    let state = I18N.read();
+    state.get_message(&state.current_locale, key, None)
+}
+
+/// Look up `key` in a specific locale, ignoring the process-wide current locale.
+/// Used by the hub, which renders one message per subscriber language; an
+/// unknown locale falls back to [`DEFAULT_LOCALE`].
+pub fn message_in(locale: &str, key: &str) -> String {
+    I18N.read().get_message(locale, key, None)
 }
 
 /// The active locale (one of [`SUPPORTED_LOCALES`]). Used to pick the right

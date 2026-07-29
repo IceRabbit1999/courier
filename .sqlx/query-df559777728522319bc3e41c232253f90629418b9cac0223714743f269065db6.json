@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT subscriber_id AS \"subscriber_id!\", chat_id, locale FROM hub_subscribers WHERE secret_hash = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "subscriber_id!",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hub_subscribers",
+            "name": "subscriber_id"
+          }
+        }
+      },
+      {
+        "name": "chat_id",
+        "ordinal": 1,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "hub_subscribers",
+            "name": "chat_id"
+          }
+        }
+      },
+      {
+        "name": "locale",
+        "ordinal": 2,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hub_subscribers",
+            "name": "locale"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "df559777728522319bc3e41c232253f90629418b9cac0223714743f269065db6"
+}

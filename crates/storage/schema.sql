@@ -1,5 +1,5 @@
 -- Cumulative mirror of the schema produced by all migrations in
--- `migrations/` (currently through 0007). This file is not itself applied —
+-- `migrations/` (currently through 0008). This file is not itself applied —
 -- it exists purely as a single reference for the current shape of the
 -- database. Update it alongside every new migration.
 
@@ -135,15 +135,17 @@ CREATE TABLE match_players (
 -- Structurally mirrors `friends` / `friend_recent_games` but is populated by
 -- direct add/remove rather than a wholesale Steam sync.
 CREATE TABLE follows (
-    steam_id         TEXT PRIMARY KEY,
-    added_at         INTEGER NOT NULL,
-    persona_name     TEXT NOT NULL,
-    avatar           TEXT NOT NULL,
-    profile_url      TEXT NOT NULL,
-    persona_state    INTEGER NOT NULL,
-    last_log_off     INTEGER,
-    game_extra_info  TEXT,
-    updated_at       INTEGER NOT NULL
+    steam_id              TEXT PRIMARY KEY,
+    added_at              INTEGER NOT NULL,
+    persona_name          TEXT NOT NULL,
+    avatar                TEXT NOT NULL,
+    profile_url           TEXT NOT NULL,
+    persona_state         INTEGER NOT NULL,
+    last_log_off          INTEGER,
+    game_extra_info       TEXT,
+    updated_at            INTEGER NOT NULL,
+    tracked               INTEGER NOT NULL DEFAULT 0,
+    last_tracked_match_id INTEGER
 );
 
 CREATE TABLE follow_recent_games (
@@ -154,4 +156,45 @@ CREATE TABLE follow_recent_games (
     playtime_forever INTEGER NOT NULL,
     img_icon_url     TEXT NOT NULL,
     PRIMARY KEY (steam_id, app_id)
+);
+
+-- Hub-service (courier-hub) tables, prefixed `hub_` to keep them apart from
+-- the desktop app's tables. Live in the hub's own database file
+-- (courier-hub.db), created by the shared migrator.
+CREATE TABLE hub_pending_links (
+    token_hash    TEXT PRIMARY KEY,
+    secret_hash   TEXT NOT NULL,
+    created_at    INTEGER NOT NULL,
+    subscriber_id TEXT
+);
+
+CREATE TABLE hub_subscribers (
+    subscriber_id TEXT PRIMARY KEY,
+    secret_hash   TEXT NOT NULL UNIQUE,
+    chat_id       INTEGER NOT NULL,
+    created_at    INTEGER NOT NULL,
+    offline_mode  INTEGER NOT NULL DEFAULT 0,
+    locale        TEXT NOT NULL DEFAULT 'en'
+);
+
+CREATE TABLE hub_tracked_accounts (
+    subscriber_id TEXT NOT NULL,
+    steam_id      TEXT NOT NULL,
+    persona_name  TEXT NOT NULL,
+    last_match_id INTEGER,
+    PRIMARY KEY (subscriber_id, steam_id)
+);
+
+CREATE TABLE hub_hero_names (
+    locale  TEXT NOT NULL,
+    hero_id INTEGER NOT NULL,
+    name    TEXT NOT NULL,
+    PRIMARY KEY (locale, hero_id)
+);
+
+CREATE TABLE hub_item_names (
+    locale  TEXT NOT NULL,
+    item_id INTEGER NOT NULL,
+    name    TEXT NOT NULL,
+    PRIMARY KEY (locale, item_id)
 );

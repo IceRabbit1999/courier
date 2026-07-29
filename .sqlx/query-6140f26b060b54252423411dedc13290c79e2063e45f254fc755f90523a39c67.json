@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT steam_id AS \"steam_id!\", added_at, persona_name, avatar, profile_url, persona_state, last_log_off, game_extra_info\n               FROM follows ORDER BY (persona_state != 0) DESC, persona_name COLLATE NOCASE ASC",
+  "query": "SELECT steam_id AS \"steam_id!\", added_at, persona_name, avatar, profile_url, persona_state, last_log_off, game_extra_info, tracked\n               FROM follows ORDER BY (persona_state != 0) DESC, persona_name COLLATE NOCASE ASC",
   "describe": {
     "columns": [
       {
@@ -90,6 +90,17 @@
             "name": "game_extra_info"
           }
         }
+      },
+      {
+        "name": "tracked",
+        "ordinal": 8,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "follows",
+            "name": "tracked"
+          }
+        }
       }
     ],
     "parameters": {
@@ -103,8 +114,9 @@
       false,
       false,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "6f4ee765ca1eda10c6250e9e9636609edeaf8d4391b20c4b1f376cf2e8ffb5b6"
+  "hash": "6140f26b060b54252423411dedc13290c79e2063e45f254fc755f90523a39c67"
 }

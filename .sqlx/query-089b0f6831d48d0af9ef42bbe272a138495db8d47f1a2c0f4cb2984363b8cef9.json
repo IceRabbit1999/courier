@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM hub_tracked_accounts WHERE subscriber_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "089b0f6831d48d0af9ef42bbe272a138495db8d47f1a2c0f4cb2984363b8cef9"
+}

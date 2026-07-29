@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT s.subscriber_id AS \"subscriber_id!\"\n               FROM hub_pending_links p JOIN hub_subscribers s ON s.subscriber_id = p.subscriber_id\n               WHERE p.token_hash = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "subscriber_id!",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hub_subscribers",
+            "name": "subscriber_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "be2abb319c05948427d36b5bd8d2cc35ed6bc30362220a4a2a17870145ea03b9"
+}

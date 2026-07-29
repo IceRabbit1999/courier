@@ -7,6 +7,7 @@ members = [
   "crates/ui",
   "crates/storage",
   "crates/plugin",
+  "crates/hub",
 ]
 
 resolver = "3"
@@ -22,6 +23,7 @@ authors = ["IceRabbit"]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }
 futures = "0.3"
 reqwest = { version = "0.13", features = ["blocking"] }
+url = "2"
 
 # UI
 eframe = { version = "0.35.0", default-features = true }
@@ -48,12 +50,27 @@ fluent-bundle = "0.16"
 unic-langid = "0.9"
 sys-locale = "0.3"
 
+# Async traits (object-safe async methods for the channel abstraction)
+async-trait = "0.1"
+
+# Hub service
+teloxide = { version = "0.17", default-features = false, features = ["rustls"] }
+axum = "0.8"
+ulid = "3"
+governor = "0.10"
+
+# Bearer-token minting and hashing-at-rest
+rand = "0.9"
+sha2 = "0.10"
+base64 = "0.22"
+
 # Error handling
 snafu = { version = "0.9", features = ["unstable-provider-api"] }
 
 # Logging
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
 
 # Time
 chrono = { version = "0.4", features = ["serde"] }
@@ -79,10 +96,13 @@ ui = { path = "crates/ui" }
 storage = { path = "crates/storage" }
 plugin = { path = "crates/plugin" }
 
-# Async runtime bridge
-tokio-util = { version = "0.7" }
+# Graceful shutdown (CancellationToken)
+tokio-util = { version = "0.7", features = ["rt"] }
 
 [workspace.lints.clippy]
 unwrap_used = "deny"
 expect_used = "deny"
 allow_attributes_without_reason = "deny"
+
+[profile.release]
+strip = true

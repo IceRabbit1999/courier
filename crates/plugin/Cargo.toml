@@ -16,6 +16,7 @@ graphql_client = { workspace = true }
 snafu = { workspace = true }
 tracing = { workspace = true }
 futures = { workspace = true }
+async-trait = { workspace = true }
 
 [dev-dependencies]
 dotenvy = "0.15"

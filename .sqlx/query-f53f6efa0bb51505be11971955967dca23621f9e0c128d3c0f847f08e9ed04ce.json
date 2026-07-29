@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT subscriber_id FROM hub_subscribers WHERE secret_hash = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "subscriber_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hub_subscribers",
+            "name": "subscriber_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "f53f6efa0bb51505be11971955967dca23621f9e0c128d3c0f847f08e9ed04ce"
+}

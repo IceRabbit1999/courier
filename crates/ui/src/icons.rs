@@ -27,6 +27,8 @@ pub mod action {
     pub const INFO: &str = egui_phosphor::regular::INFO;
     pub const EDIT: &str = egui_phosphor::regular::PENCIL_SIMPLE;
     pub const DELETE: &str = egui_phosphor::regular::TRASH;
+    pub const TRACK: &str = egui_phosphor::regular::BELL;
+    pub const TRACKING: &str = egui_phosphor::regular::BELL_RINGING;
     pub const ARROW_LEFT: &str = egui_phosphor::regular::ARROW_LEFT;
     pub const PANEL_LEFT: &str = egui_phosphor::regular::SIDEBAR_SIMPLE;
 }

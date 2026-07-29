@@ -32,6 +32,12 @@ pub trait Endpoint {
     fn body(&self) -> Option<serde_json::Value> {
         None
     }
+
+    /// A bearer token to authenticate the request, if the endpoint needs one
+    /// (e.g. the hub's `/notify`). Applied as an `Authorization: Bearer` header.
+    fn bearer(&self) -> Option<String> {
+        None
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -58,13 +64,16 @@ impl Client {
         if let Some(body) = endpoint.body() {
             request = request.json(&body);
         }
+        if let Some(token) = endpoint.bearer() {
+            request = request.bearer_auth(token);
+        }
 
-        info!("Requesting to: {}", url);
+        info!(request = ?request, "Spawn a request");
         let response = request.send().await.context(RequestSnafu)?;
         let text = response.text().await.context(RequestSnafu)?;
 
         serde_json::from_str::<E::Response>(&text)
-            .inspect_err(|_| error!("Failed to deserialize responsem get: {}", text))
+            .inspect_err(|_| error!("Failed to deserialize response get: {}", text))
             .context(DeserializeSnafu)
     }
 

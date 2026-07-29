@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT subscriber_id, secret_hash FROM hub_pending_links WHERE token_hash = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "subscriber_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hub_pending_links",
+            "name": "subscriber_id"
+          }
+        }
+      },
+      {
+        "name": "secret_hash",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hub_pending_links",
+            "name": "secret_hash"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false
+    ]
+  },
+  "hash": "d51c0b32c842f162cbf1c4852742be409921190420d128ea3bed8846b9d15d92"
+}

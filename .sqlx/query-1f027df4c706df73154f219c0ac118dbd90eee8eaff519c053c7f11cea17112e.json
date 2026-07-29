@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT steam_id, persona_name, last_match_id FROM hub_tracked_accounts WHERE subscriber_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "steam_id",
+        "ordinal": 0,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hub_tracked_accounts",
+            "name": "steam_id"
+          }
+        }
+      },
+      {
+        "name": "persona_name",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hub_tracked_accounts",
+            "name": "persona_name"
+          }
+        }
+      },
+      {
+        "name": "last_match_id",
+        "ordinal": 2,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "hub_tracked_accounts",
+            "name": "last_match_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "1f027df4c706df73154f219c0ac118dbd90eee8eaff519c053c7f11cea17112e"
+}

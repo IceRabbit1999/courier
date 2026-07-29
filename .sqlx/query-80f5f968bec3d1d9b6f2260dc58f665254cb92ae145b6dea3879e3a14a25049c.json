@@ -1,0 +1,38 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT hero_id, name FROM hub_hero_names WHERE locale = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "hero_id",
+        "ordinal": 0,
+        "type_info": "Integer",
+        "origin": {
+          "Table": {
+            "table": "hub_hero_names",
+            "name": "hero_id"
+          }
+        }
+      },
+      {
+        "name": "name",
+        "ordinal": 1,
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "hub_hero_names",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "80f5f968bec3d1d9b6f2260dc58f665254cb92ae145b6dea3879e3a14a25049c"
+}

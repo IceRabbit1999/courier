@@ -10,6 +10,11 @@ shared = { workspace = true }
 sqlx = { workspace = true }
 snafu = { workspace = true }
 tracing = { workspace = true }
+ulid = { workspace = true }
+rand = { workspace = true }
+sha2 = { workspace = true }
+base64 = { workspace = true }
+parking_lot = { workspace = true }
 
 [lints]
 workspace = true

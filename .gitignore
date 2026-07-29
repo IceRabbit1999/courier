@@ -4,5 +4,8 @@
 **/assets/
 .claude
 courier.db
+courier-hub.db
 config.toml
 docs/examples
+codebook.toml
+logs/

@@ -1,14 +1,16 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Duration};
 
 use egui::ViewportCommand;
 use snafu::ResultExt;
 use tokio::sync::mpsc;
+use tracing::error;
 
 use crate::{
     async_bridge::{AsyncBridge, TaskResult},
     components::{exit_modal, menu_bar, sidebar, toast},
     screens::{self, Screen},
     theme::{CourierTheme, ThemeMode},
+    tracker::Tracker,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -34,18 +36,6 @@ impl Route {
             Route::Items => i18n::message("nav-items"),
             Route::Settings => i18n::message("nav-settings"),
         }
-    }
-
-    pub fn all() -> &'static [Route] {
-        &[
-            Route::Dashboard,
-            Route::Friends,
-            Route::Follows,
-            Route::Matches,
-            Route::Heroes,
-            Route::Items,
-            Route::Settings,
-        ]
     }
 
     pub fn main_routes() -> &'static [Route] {
@@ -108,6 +98,7 @@ pub struct App {
     storage: storage::Storage,
     client: plugin::Client,
     client_proxy: Option<String>,
+    tracker: Option<Tracker>,
     rx: mpsc::UnboundedReceiver<TaskResult>,
     toast_rx: mpsc::UnboundedReceiver<toast::ToastEvent>,
 }
@@ -163,12 +154,14 @@ impl App {
         let toast_sender = toast::ToastSender::new(toast_tx);
         let bridge = AsyncBridge::new(runtime.clone(), tx, cc.egui_ctx.clone(), toast_sender);
 
+        let mut tracker = None;
         let state = if configs::is_first_launch() {
             AppState::Setup(Box::default())
         } else {
             // Populate the watch list from the last-synced data without a network call.
             Self::spawn_load_friends_from_db(&bridge, &storage);
             Self::spawn_load_follows_from_db(&bridge, &storage);
+            tracker = Some(Tracker::spawn(&runtime, storage.clone(), bridge.clone()));
             AppState::Main(Box::new(MainState::new(bridge.clone())))
         };
 
@@ -183,6 +176,7 @@ impl App {
             storage,
             client,
             client_proxy,
+            tracker,
             rx,
             toast_rx,
         }
@@ -303,6 +297,142 @@ impl App {
             storage.remove_all_friends_from_follows().await.whatever_context("Failed to remove friends from follows")?;
             let follows = storage.list_follows().await.whatever_context("Failed to load follows from storage")?;
             Ok(TaskResult::FollowsLoaded(follows))
+        });
+    }
+
+    /// Enroll or unenroll one follow in background tracking, then reload the list.
+    fn spawn_set_tracked(bridge: &AsyncBridge, storage: &storage::Storage, steam_id: String, tracked: bool) {
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            storage.set_follow_tracked(&steam_id, tracked).await.whatever_context("Failed to update tracking")?;
+            let follows = storage.list_follows().await.whatever_context("Failed to load follows from storage")?;
+            Ok(TaskResult::FollowsLoaded(follows))
+        });
+    }
+
+    /// Begin the official Telegram link: ask the hub for a token, the bearer
+    /// secret, and the deep link. The hub only ever discloses the secret here,
+    /// so it has to be carried through the poll rather than fetched later.
+    fn spawn_connect_telegram(bridge: &AsyncBridge, client: &plugin::Client) {
+        let (base, access_code) = {
+            let cfg = configs::read();
+            (cfg.notification.telegram.hub_base_url.clone(), cfg.notification.telegram.access_code.clone())
+        };
+        let client = client.clone();
+        bridge.spawn(async move {
+            let link = plugin::channel::link_new(&client, &base, access_code)
+                .await
+                .whatever_context("Failed to start Telegram linking")?;
+            Ok(TaskResult::TelegramLinkStarted {
+                token: link.token,
+                secret: link.secret,
+                deep_link: link.deep_link,
+            })
+        });
+    }
+
+    /// Poll the hub until the user completes the deep-link `/start`, then pair
+    /// the returned subscriber id with `secret`. Times out after ~2 minutes.
+    fn spawn_poll_telegram_link(bridge: &AsyncBridge, client: &plugin::Client, token: String, secret: String) {
+        let base = configs::read().notification.telegram.hub_base_url.clone();
+        let client = client.clone();
+        bridge.spawn(async move {
+            for _ in 0..60 {
+                let status = plugin::channel::link_status(&client, &base, &token)
+                    .await
+                    .whatever_context("Failed to check Telegram link status")?;
+                if let Some(subscriber_id) = status.subscriber_id {
+                    return Ok(TaskResult::TelegramLinked { subscriber_id, secret });
+                }
+                tokio::time::sleep(Duration::from_secs(2)).await;
+            }
+            snafu::whatever!("Telegram linking timed out. Please try Connect again.")
+        });
+    }
+
+    /// Send a Telegram test push through the official hub.
+    fn spawn_test_telegram(bridge: &AsyncBridge, client: &plugin::Client) {
+        let (base, secret) = {
+            let config = configs::read();
+            (config.notification.telegram.hub_base_url.clone(), config.secrets.telegram_subscriber_secret.clone())
+        };
+        let Some(secret) = secret else {
+            bridge.toasts().error(i18n::message("settings-telegram"), i18n::message("telegram-not-linked-error"));
+            return;
+        };
+        let client = client.clone();
+        bridge.spawn(async move {
+            let hub = plugin::channel::OfficialHub::new(client, base, secret);
+            let notification = shared::hub::Notification {
+                title: i18n::message("telegram-test-title"),
+                body: i18n::message("telegram-test-body"),
+            };
+            plugin::channel::Channel::deliver(&hub, &notification)
+                .await
+                .whatever_context("Failed to send Telegram test message")?;
+            Ok(TaskResult::TelegramTestSent)
+        });
+    }
+
+    /// Upload the tracking snapshot to the hub: the tracked follows, the
+    /// active locale and its hero names, and the offline-mode flag. This is the
+    /// only path any of that data leaves the machine on, so it runs strictly on
+    /// user action (the Sync button, or toggling offline mode).
+    fn spawn_sync_telegram(bridge: &AsyncBridge, client: &plugin::Client, storage: &storage::Storage) {
+        let (base, secret, offline_mode) = {
+            let config = configs::read();
+            (
+                config.notification.telegram.hub_base_url.clone(),
+                config.secrets.telegram_subscriber_secret.clone(),
+                config.notification.telegram.offline_mode,
+            )
+        };
+        let Some(secret) = secret else {
+            bridge.toasts().error(i18n::message("settings-telegram"), i18n::message("telegram-not-linked-error"));
+            return;
+        };
+        let client = client.clone();
+        let storage = storage.clone();
+        bridge.spawn(async move {
+            let locale = i18n::current_locale();
+            let tracked = storage.list_tracked_follows().await.whatever_context("Failed to load tracked follows")?;
+            let hero_names = storage.hero_names(&locale).await.whatever_context("Failed to load hero names")?;
+            let item_names = storage.item_names(&locale).await.whatever_context("Failed to load item names")?;
+            let accounts = tracked
+                .into_iter()
+                .map(|follow| shared::hub::TrackedAccount {
+                    steam_id: follow.steam_id,
+                    persona_name: follow.persona_name,
+                })
+                .collect::<Vec<_>>();
+            let count = accounts.len();
+            let request = shared::hub::SyncRequest {
+                accounts,
+                locale,
+                hero_names,
+                item_names,
+                offline_mode,
+            };
+            plugin::channel::sync(&client, &base, &secret, request)
+                .await
+                .whatever_context("Failed to sync with the Telegram hub")?;
+            Ok(TaskResult::TelegramSynced { accounts: count })
+        });
+    }
+
+    /// Revoke the official Telegram link at the hub.
+    fn spawn_unlink_telegram(bridge: &AsyncBridge, client: &plugin::Client) {
+        let (base, secret) = {
+            let config = configs::read();
+            (config.notification.telegram.hub_base_url.clone(), config.secrets.telegram_subscriber_secret.clone())
+        };
+        let Some(secret) = secret else {
+            return;
+        };
+        let client = client.clone();
+        bridge.spawn(async move {
+            plugin::channel::unlink(&client, &base, &secret).await.whatever_context("Failed to unlink Telegram")?;
+            Ok(TaskResult::TelegramUnlinked)
         });
     }
 
@@ -440,13 +570,14 @@ impl App {
         runtime.block_on(storage.close());
 
         if let Err(e) = configs::migrate_storage_path(new_path) {
-            tracing::error!("Failed to migrate storage data: {e}");
+            error!("Failed to migrate storage data: {e}");
         }
 
-        match runtime.block_on(storage::Storage::open(configs::storage_path())) {
-            Ok(reopened) => *storage = reopened,
-            Err(e) => tracing::error!("Failed to reopen storage after migration: {e}"),
-        }
+        let reopened = runtime.block_on(storage::Storage::open(configs::storage_path()));
+        let Ok(reopened) = reopened.inspect_err(|e| error!("Failed to reopen storage after migration: {e}")) else {
+            return;
+        };
+        *storage = reopened;
     }
 
     /// Rebuild the HTTP client when the proxy setting changes so the new proxy
@@ -456,14 +587,13 @@ impl App {
         if *current_proxy == proxy {
             return;
         }
-        match plugin::Client::new(proxy.as_deref()) {
-            Ok(new_client) => {
-                *client = new_client;
-                *current_proxy = proxy;
-                toasts.push_success(i18n::message("network-proxy-updated-title"), i18n::message("network-proxy-updated-message"));
-            }
-            Err(e) => toasts.push_error(i18n::message("network-proxy-error-title"), e.to_string()),
-        }
+        let rebuilt = plugin::Client::new(proxy.as_deref());
+        let Ok(new_client) = rebuilt.inspect_err(|e| toasts.push_error(i18n::message("network-proxy-error-title"), e.to_string())) else {
+            return;
+        };
+        *client = new_client;
+        *current_proxy = proxy;
+        toasts.push_success(i18n::message("network-proxy-updated-title"), i18n::message("network-proxy-updated-message"));
     }
 
     fn title(&self) -> String {
@@ -473,7 +603,37 @@ impl App {
         }
     }
 
-    fn handle_task_result(&mut self, result: TaskResult) {
+    fn handle_task_result(&mut self, ctx: &egui::Context, result: TaskResult) {
+        // Telegram-link steps need `self.bridge`/`self.client`/`ctx`, disjoint from
+        // the `main` borrow below, so they're handled before destructuring state.
+        match &result {
+            TaskResult::TelegramLinkStarted { token, secret, deep_link } => {
+                ctx.open_url(egui::OpenUrl::new_tab(deep_link));
+                Self::spawn_poll_telegram_link(&self.bridge, &self.client, token.clone(), secret.clone());
+            }
+            TaskResult::TelegramLinked { subscriber_id, secret } => {
+                let (subscriber_id, secret) = (subscriber_id.clone(), secret.clone());
+                configs::update(|cfg| {
+                    cfg.secrets.telegram_subscriber_id = Some(subscriber_id);
+                    cfg.secrets.telegram_subscriber_secret = Some(secret);
+                    cfg.notification.telegram.enabled = true;
+                });
+                if let Err(e) = configs::save() {
+                    error!("Failed to save config after Telegram link: {e}");
+                }
+            }
+            TaskResult::TelegramUnlinked => {
+                configs::update(|cfg| {
+                    cfg.secrets.telegram_subscriber_id = None;
+                    cfg.secrets.telegram_subscriber_secret = None;
+                });
+                if let Err(e) = configs::save() {
+                    error!("Failed to save config after Telegram unlink: {e}");
+                }
+            }
+            _ => {}
+        }
+
         let AppState::Main(main) = &mut self.state else {
             return;
         };
@@ -494,6 +654,30 @@ impl App {
                 hero_slugs,
                 item_slugs,
             } => main.matches.set_names(heroes, items, hero_slugs, item_slugs),
+            TaskResult::NewMatchesTracked { steam_id, count } => {
+                let name = main
+                    .follows
+                    .follows()
+                    .iter()
+                    .find(|f| f.steam_id == steam_id)
+                    .map(|f| f.persona_name.clone())
+                    .unwrap_or(steam_id);
+                main.toasts.push_success(i18n::message("tracking-new-match-title"), format!("{name} · {count}"));
+            }
+            TaskResult::TelegramLinkStarted { .. } => {}
+            TaskResult::TelegramLinked { .. } => {
+                main.toasts.push_success(i18n::message("settings-telegram"), i18n::message("telegram-linked-toast"));
+            }
+            TaskResult::TelegramTestSent => {
+                main.toasts.push_success(i18n::message("settings-telegram"), i18n::message("telegram-test-sent-toast"));
+            }
+            TaskResult::TelegramSynced { accounts } => {
+                main.toasts
+                    .push_success(i18n::message("settings-telegram"), format!("{} · {accounts}", i18n::message("telegram-synced-toast")));
+            }
+            TaskResult::TelegramUnlinked => {
+                main.toasts.push_info(i18n::message("settings-telegram"), i18n::message("telegram-unlinked-toast"));
+            }
             TaskResult::TaskFailed(error) => {
                 // A failure clears whichever in-flight indicator was set; the
                 // unaffected ones are already idle, so resetting them all is harmless.
@@ -531,9 +715,8 @@ impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let ctx = ui.ctx().clone();
 
-        // Drain all completed background task results (non-blocking)
         while let Ok(result) = self.rx.try_recv() {
-            self.handle_task_result(result);
+            self.handle_task_result(&ctx, result);
         }
 
         self.theme.apply_to_ctx(&ctx);
@@ -544,12 +727,10 @@ impl eframe::App for App {
             ctx.send_viewport_cmd(ViewportCommand::Title(title));
         }
 
-        // Handle close request
         if ctx.input(|i| i.viewport().close_requested()) {
             match &mut self.state {
-                AppState::Setup(_) => {
-                    // Allow close during setup
-                }
+                // Closing during setup needs no confirmation — nothing is at stake yet.
+                AppState::Setup(_) => {}
                 AppState::Main(main) => {
                     if !main.exit_modal.visible {
                         ctx.send_viewport_cmd(ViewportCommand::CancelClose);
@@ -572,11 +753,10 @@ impl eframe::App for App {
                 };
                 if should_transition {
                     let AppState::Setup(ref setup) = self.state else { unreachable!() };
-                    // Clone the result before mutating self
                     let result = setup.result();
                     let app_path = PathBuf::from(&result.app_path);
                     if let Err(e) = configs::set_app_path(app_path) {
-                        tracing::error!("Failed to set app path: {e:?}");
+                        error!("Failed to set app path: {e:?}");
                     }
 
                     configs::update(|cfg| {
@@ -584,7 +764,7 @@ impl eframe::App for App {
                     });
 
                     if let Err(e) = configs::save() {
-                        tracing::error!("Failed to save config after setup: {e}");
+                        error!("Failed to save config after setup: {e}");
                     }
 
                     let locale = if result.language == "auto" {
@@ -599,6 +779,7 @@ impl eframe::App for App {
                         main.route = Route::Settings;
                     }
                     self.state = AppState::Main(Box::new(main));
+                    self.tracker = Some(Tracker::spawn(&self.runtime, self.storage.clone(), self.bridge.clone()));
                 }
             }
 
@@ -673,6 +854,12 @@ impl eframe::App for App {
                                 Some(screens::follows::FollowAction::AddSelectedFriends(steam_ids)) => {
                                     Self::spawn_add_selected_friends_to_follows(&self.bridge, &self.storage, steam_ids);
                                 }
+                                Some(screens::follows::FollowAction::SetTracked(steam_id, tracked)) => {
+                                    Self::spawn_set_tracked(&self.bridge, &self.storage, steam_id, tracked);
+                                    if let Some(tracker) = &self.tracker {
+                                        tracker.wake();
+                                    }
+                                }
                                 None => {}
                             }
                             Vec::new()
@@ -732,12 +919,24 @@ impl eframe::App for App {
                                 main.settings.set_syncing(true);
                                 Self::spawn_sync_static_data(&self.bridge, &self.client, &self.storage);
                             }
+                            screens::setting::SettingsAction::ConnectTelegram => {
+                                Self::spawn_connect_telegram(&self.bridge, &self.client);
+                            }
+                            screens::setting::SettingsAction::TestTelegram => {
+                                Self::spawn_test_telegram(&self.bridge, &self.client);
+                            }
+                            screens::setting::SettingsAction::SyncTelegram => {
+                                Self::spawn_sync_telegram(&self.bridge, &self.client, &self.storage);
+                            }
+                            screens::setting::SettingsAction::DisconnectTelegram => {
+                                Self::spawn_unlink_telegram(&self.bridge, &self.client);
+                            }
                             screens::setting::SettingsAction::Reset => {
                                 configs::update(|cfg| {
                                     *cfg = configs::AppConfig::default();
                                 });
                                 if let Err(e) = configs::save() {
-                                    tracing::error!("Failed to save config after reset: {e}");
+                                    error!("Failed to save config after reset: {e}");
                                 }
                                 let default_theme = configs::AppConfig::default().general.theme;
                                 let new_mode = match default_theme {
@@ -754,19 +953,16 @@ impl eframe::App for App {
                     }
                 });
 
-                // Toasts overlay
                 main.toasts.show(&ctx);
 
-                // Inspect panel (dev only)
                 #[cfg(feature = "inspect")]
                 main.inspect.show(&ctx);
 
-                // Exit modal overlay
                 if let Some(exit_action) = main.exit_modal.ui(&ctx) {
                     match exit_action {
                         exit_modal::ExitAction::Confirm => {
                             if let Err(e) = configs::save() {
-                                tracing::error!("Failed to save config on exit: {e}");
+                                error!("Failed to save config on exit: {e}");
                             }
                             self.runtime.block_on(self.storage.close());
                             ctx.send_viewport_cmd(ViewportCommand::Close);

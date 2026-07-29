@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE hub_tracked_accounts SET last_match_id = ? WHERE subscriber_id = ? AND steam_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "5eda2e92b6d8a09d8b984b30ee12afa8fcd18f3fd52985454a7c76557b76fb30"
+}

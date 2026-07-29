@@ -22,6 +22,8 @@ pub enum FollowAction {
     RefreshStatuses,
     /// Follow the chosen subset of the friend list.
     AddSelectedFriends(Vec<String>),
+    /// Enroll (or unenroll) one player in background match tracking.
+    SetTracked(String, bool),
 }
 
 /// How the follow list is grouped and ordered.
@@ -203,15 +205,13 @@ impl FollowScreen {
 
                 ui.horizontal(|ui| {
                     if widgets::ghost_button(ui, i18n::message("follows-picker-select-all")).clicked() {
-                        for friend in &candidates {
-                            self.picker_selected.insert(friend.steam_id.clone());
-                        }
+                        self.picker_selected.extend(candidates.iter().map(|f| f.steam_id.clone()));
                     }
                     ui.add_space(spacing::SMALL);
+                    // Only the currently visible candidates are cleared, so a
+                    // search-narrowed "none" doesn't discard hidden selections.
                     if widgets::ghost_button(ui, i18n::message("follows-picker-select-none")).clicked() {
-                        for friend in &candidates {
-                            self.picker_selected.remove(&friend.steam_id);
-                        }
+                        self.picker_selected.retain(|id| candidates.iter().all(|f| &f.steam_id != id));
                     }
                 });
                 ui.add_space(spacing::SMALL);
@@ -230,21 +230,23 @@ impl FollowScreen {
                     );
                 } else {
                     egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
-                        let mut toggles = Vec::new();
-                        for friend in &candidates {
-                            let mut checked = self.picker_selected.contains(&friend.steam_id);
-                            let dot_color = if friend.persona_state.is_online() { palette.success } else { palette.text_muted };
-                            widgets::list_row(ui, 44.0, |ui| {
-                                ui.add_space(spacing::SMALL);
-                                widgets::presence_dot(ui, dot_color, friend.persona_state.is_online());
-                                ui.add_space(spacing::SMALL);
-                                ui.label(egui::RichText::new(&friend.persona_name).size(font_size::BODY).color(palette.text));
-                                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                    widgets::toggle(ui, &mut checked);
+                        let toggles = candidates
+                            .iter()
+                            .map(|friend| {
+                                let mut checked = self.picker_selected.contains(&friend.steam_id);
+                                let dot_color = if friend.persona_state.is_online() { palette.success } else { palette.text_muted };
+                                widgets::list_row(ui, 44.0, |ui| {
+                                    ui.add_space(spacing::SMALL);
+                                    widgets::presence_dot(ui, dot_color, friend.persona_state.is_online());
+                                    ui.add_space(spacing::SMALL);
+                                    ui.label(egui::RichText::new(&friend.persona_name).size(font_size::BODY).color(palette.text));
+                                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                        widgets::toggle(ui, &mut checked);
+                                    });
                                 });
-                            });
-                            toggles.push((friend.steam_id.clone(), checked));
-                        }
+                                (friend.steam_id.clone(), checked)
+                            })
+                            .collect::<Vec<_>>();
                         for (steam_id, checked) in toggles {
                             if checked {
                                 self.picker_selected.insert(steam_id);
@@ -411,15 +413,19 @@ impl FollowScreen {
     fn render_rows(&mut self, ui: &mut egui::Ui, palette: &ColorPalette, load_avatars: bool, limit: usize, idxs: &[usize], action: &mut Option<FollowAction>) {
         let mut toggles = Vec::new();
         let mut removed = None;
+        let mut track_toggled = None;
         for &i in idxs {
             let follow = &self.follows[i];
             let expanded = self.expanded.contains(&follow.steam_id);
-            let (toggled, remove_clicked) = follow_row(ui, follow, palette, load_avatars, expanded, limit);
-            if toggled {
+            let row = follow_row(ui, follow, palette, load_avatars, expanded, limit);
+            if row.recent_toggled {
                 toggles.push(follow.steam_id.clone());
             }
-            if remove_clicked {
+            if row.remove_clicked {
                 removed = Some(follow.steam_id.clone());
+            }
+            if row.track_clicked {
+                track_toggled = Some((follow.steam_id.clone(), !follow.tracked));
             }
         }
         for id in toggles {
@@ -429,6 +435,9 @@ impl FollowScreen {
         }
         if let Some(steam_id) = removed {
             *action = Some(FollowAction::RemovePlayer(steam_id));
+        }
+        if let Some((steam_id, tracked)) = track_toggled {
+            *action = Some(FollowAction::SetTracked(steam_id, tracked));
         }
     }
 }
@@ -460,10 +469,16 @@ fn group_header(ui: &mut egui::Ui, palette: &ColorPalette, label: &str, count: u
     clicked
 }
 
-/// One follow-list row. Returns `(recent-games toggle clicked, remove clicked)`.
-/// A row click that isn't on the toggle or the remove control opens the
-/// player's Steam profile.
-fn follow_row(ui: &mut egui::Ui, follow: &Follow, palette: &ColorPalette, load_avatars: bool, expanded: bool, limit: usize) -> (bool, bool) {
+/// The interactions a follow row surfaces back to [`FollowScreen::render_rows`].
+struct FollowRowResponse {
+    recent_toggled: bool,
+    remove_clicked: bool,
+    track_clicked: bool,
+}
+
+/// One follow-list row. A row click that isn't on a control opens the player's
+/// Steam profile.
+fn follow_row(ui: &mut egui::Ui, follow: &Follow, palette: &ColorPalette, load_avatars: bool, expanded: bool, limit: usize) -> FollowRowResponse {
     let dot_color = if follow.in_game() {
         palette.primary
     } else if follow.persona_state.is_online() {
@@ -474,6 +489,7 @@ fn follow_row(ui: &mut egui::Ui, follow: &Follow, palette: &ColorPalette, load_a
     let has_games = !follow.recent_games.is_empty();
     let mut toggled = false;
     let mut remove_clicked = false;
+    let mut track_clicked = false;
 
     let response = widgets::list_row(ui, 56.0, |ui| {
         ui.add_space(spacing::SMALL);
@@ -509,6 +525,21 @@ fn follow_row(ui: &mut egui::Ui, follow: &Follow, palette: &ColorPalette, load_a
             }
             ui.add_space(spacing::MEDIUM);
 
+            let (track_icon, track_color, track_hint) = if follow.tracked {
+                (action::TRACKING, palette.primary, i18n::message("follows-untrack-hint"))
+            } else {
+                (action::TRACK, palette.text_muted, i18n::message("follows-track-hint"))
+            };
+            if ui
+                .add(egui::Label::new(egui::RichText::new(track_icon).size(font_size::BODY).color(track_color)).sense(egui::Sense::click()))
+                .on_hover_cursor(egui::CursorIcon::PointingHand)
+                .on_hover_text(track_hint)
+                .clicked()
+            {
+                track_clicked = true;
+            }
+            ui.add_space(spacing::MEDIUM);
+
             if has_games {
                 let t = ui
                     .ctx()
@@ -527,7 +558,7 @@ fn follow_row(ui: &mut egui::Ui, follow: &Follow, palette: &ColorPalette, load_a
         });
     });
 
-    if response.clicked() && !toggled && !remove_clicked && !follow.profile_url.is_empty() {
+    if response.clicked() && !toggled && !remove_clicked && !track_clicked && !follow.profile_url.is_empty() {
         ui.ctx().open_url(egui::OpenUrl::new_tab(&follow.profile_url));
     }
 
@@ -535,7 +566,11 @@ fn follow_row(ui: &mut egui::Ui, follow: &Follow, palette: &ColorPalette, load_a
         widgets::recent_games_panel(ui, &follow.recent_games, palette, limit);
     }
 
-    (toggled, remove_clicked)
+    FollowRowResponse {
+        recent_toggled: toggled,
+        remove_clicked,
+        track_clicked,
+    }
 }
 
 impl Default for FollowScreen {

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE follows SET tracked = ? WHERE steam_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "33a1ec45a8690a78537c791a7d4f58a7fa843c106e6db6fe7c4ac02de900bd43"
+}

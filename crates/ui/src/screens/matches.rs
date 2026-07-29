@@ -1,10 +1,7 @@
-use std::{
-    collections::HashMap,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::collections::HashMap;
 
 use egui::{Color32, CornerRadius, Sense, Vec2, vec2};
-use shared::{Follow, MatchDetail, MatchPlayer, MatchSummary};
+use shared::{Follow, MatchDetail, MatchPlayer, MatchSummary, format_duration, format_relative, game_mode_label};
 
 use crate::{
     components::widgets,
@@ -225,15 +222,12 @@ impl MatchScreen {
             return action;
         }
 
-        for m in &self.matches {
-            let keep = match self.filter {
-                MatchFilter::All => true,
-                MatchFilter::Wins => m.won(),
-                MatchFilter::Losses => !m.won(),
-            };
-            if !keep {
-                continue;
-            }
+        let visible = self.matches.iter().filter(|m| match self.filter {
+            MatchFilter::All => true,
+            MatchFilter::Wins => m.won(),
+            MatchFilter::Losses => !m.won(),
+        });
+        for m in visible {
             let icon = if self.load_icons { self.hero_icon_url(m.hero_id) } else { None };
             if summary_row(ui, palette, icon.as_deref(), &self.hero_name(m.hero_id), m).clicked() {
                 action = Some(MatchAction::OpenMatch(m.match_id));
@@ -276,7 +270,11 @@ impl MatchScreen {
                         .color(palette.text),
                 );
                 ui.add_space(spacing::MEDIUM);
-                ui.label(egui::RichText::new(game_mode_label(detail.game_mode)).size(font_size::SMALL).color(palette.text_muted));
+                ui.label(
+                    egui::RichText::new(game_mode_label(&i18n::current_locale(), detail.game_mode))
+                        .size(font_size::SMALL)
+                        .color(palette.text_muted),
+                );
             });
         });
 
@@ -335,7 +333,7 @@ impl MatchScreen {
                 if self.load_icons {
                     self.item_icons(ui, palette, player);
                 } else {
-                    ui.label(egui::RichText::new(self.items_line(player)).size(font_size::SMALL).color(palette.text_secondary));
+                    ui.label(egui::RichText::new(player.item_line(&self.item_names)).size(font_size::SMALL).color(palette.text_secondary));
                 }
             });
 
@@ -381,23 +379,6 @@ impl MatchScreen {
         }
     }
 
-    /// The player's final inventory as a comma-joined name list (empty slots and
-    /// the neutral item dropped/included respectively).
-    fn items_line(&self, player: &MatchPlayer) -> String {
-        let mut names = player
-            .items
-            .iter()
-            .chain(std::iter::once(&player.item_neutral))
-            .chain(std::iter::once(&player.item_neutral2))
-            .filter(|&&id| id != 0)
-            .map(|id| self.item_names.get(id).cloned().unwrap_or_else(|| format!("#{id}")))
-            .collect::<Vec<_>>();
-        if names.is_empty() {
-            names.push("—".to_owned());
-        }
-        names.join(" · ")
-    }
-
     fn empty_state(&self, ui: &mut egui::Ui, palette: &ColorPalette, message: &str) {
         ui.add_space(spacing::LARGE);
         ui.vertical_centered(|ui| {
@@ -439,7 +420,11 @@ fn summary_row(ui: &mut egui::Ui, palette: &ColorPalette, hero_icon: Option<&str
                         .size(font_size::SMALL)
                         .color(outcome_color),
                 );
-                ui.label(egui::RichText::new(format_relative(m.start_time)).size(font_size::SMALL).color(palette.text_muted));
+                ui.label(
+                    egui::RichText::new(format_relative(&i18n::current_locale(), m.start_time))
+                        .size(font_size::SMALL)
+                        .color(palette.text_muted),
+                );
             });
             ui.add_space(spacing::MEDIUM);
             ui.with_layout(egui::Layout::top_down(egui::Align::Max), |ui| {
@@ -506,43 +491,8 @@ fn stat(ui: &mut egui::Ui, palette: &ColorPalette, label: &str, value: &str) {
     });
 }
 
-fn format_duration(seconds: i32) -> String {
-    let seconds = seconds.max(0);
-    format!("{}:{:02}", seconds / 60, seconds % 60)
-}
-
 fn format_thousands(value: i32) -> String {
     if value >= 1000 { format!("{:.1}k", value as f32 / 1000.0) } else { value.to_string() }
-}
-
-/// A coarse "N minutes/hours/days ago" from a unix timestamp.
-fn format_relative(start_time: i64) -> String {
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or_default();
-    let elapsed = (now - start_time).max(0);
-    let (value, unit) = if elapsed < 3600 {
-        (elapsed / 60, "matches-ago-minutes")
-    } else if elapsed < 86_400 {
-        (elapsed / 3600, "matches-ago-hours")
-    } else {
-        (elapsed / 86_400, "matches-ago-days")
-    };
-    format!("{value}{}", i18n::message(unit))
-}
-
-/// Names for the most common OpenDota `game_mode` ids; others show as `#id`.
-fn game_mode_label(mode: i32) -> String {
-    let key = match mode {
-        1 => "match-mode-all-pick",
-        2 => "match-mode-captains-mode",
-        3 => "match-mode-random-draft",
-        4 => "match-mode-single-draft",
-        5 => "match-mode-all-random",
-        16 => "match-mode-captains-draft",
-        22 => "match-mode-ranked-all-pick",
-        23 => "match-mode-turbo",
-        _ => return format!("#{mode}"),
-    };
-    i18n::message(key)
 }
 
 impl Default for MatchScreen {

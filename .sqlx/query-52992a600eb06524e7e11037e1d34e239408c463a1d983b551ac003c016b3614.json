@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE hub_pending_links SET subscriber_id = ? WHERE token_hash = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "52992a600eb06524e7e11037e1d34e239408c463a1d983b551ac003c016b3614"
+}

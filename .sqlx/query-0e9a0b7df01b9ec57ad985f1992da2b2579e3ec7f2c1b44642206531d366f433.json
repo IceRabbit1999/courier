@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT match_id, hero_id, player_slot, radiant_win, start_time, duration, game_mode, lobby_type,\n                    kills, deaths, assists, gold_per_min, xp_per_min, last_hits, hero_damage, tower_damage, hero_healing\n             FROM match_summaries WHERE steam_id = ? ORDER BY start_time DESC",
+  "query": "SELECT match_id, hero_id AS \"hero_id: i32\", player_slot AS \"player_slot: i32\", radiant_win AS \"radiant_win: bool\",\n                    start_time, duration AS \"duration: i32\", game_mode AS \"game_mode: i32\", lobby_type AS \"lobby_type: i32\",\n                    kills AS \"kills: i32\", deaths AS \"deaths: i32\", assists AS \"assists: i32\",\n                    gold_per_min AS \"gold_per_min: i32\", xp_per_min AS \"xp_per_min: i32\", last_hits AS \"last_hits: i32\",\n                    hero_damage AS \"hero_damage: i32\", tower_damage AS \"tower_damage: i32\", hero_healing AS \"hero_healing: i32\"\n             FROM match_summaries WHERE steam_id = ? ORDER BY start_time DESC",
   "describe": {
     "columns": [
       {
@@ -15,7 +15,7 @@
         }
       },
       {
-        "name": "hero_id",
+        "name": "hero_id: i32",
         "ordinal": 1,
         "type_info": "Integer",
         "origin": {
@@ -26,7 +26,7 @@
         }
       },
       {
-        "name": "player_slot",
+        "name": "player_slot: i32",
         "ordinal": 2,
         "type_info": "Integer",
         "origin": {
@@ -37,7 +37,7 @@
         }
       },
       {
-        "name": "radiant_win",
+        "name": "radiant_win: bool",
         "ordinal": 3,
         "type_info": "Integer",
         "origin": {
@@ -59,7 +59,7 @@
         }
       },
       {
-        "name": "duration",
+        "name": "duration: i32",
         "ordinal": 5,
         "type_info": "Integer",
         "origin": {
@@ -70,7 +70,7 @@
         }
       },
       {
-        "name": "game_mode",
+        "name": "game_mode: i32",
         "ordinal": 6,
         "type_info": "Integer",
         "origin": {
@@ -81,7 +81,7 @@
         }
       },
       {
-        "name": "lobby_type",
+        "name": "lobby_type: i32",
         "ordinal": 7,
         "type_info": "Integer",
         "origin": {
@@ -92,7 +92,7 @@
         }
       },
       {
-        "name": "kills",
+        "name": "kills: i32",
         "ordinal": 8,
         "type_info": "Integer",
         "origin": {
@@ -103,7 +103,7 @@
         }
       },
       {
-        "name": "deaths",
+        "name": "deaths: i32",
         "ordinal": 9,
         "type_info": "Integer",
         "origin": {
@@ -114,7 +114,7 @@
         }
       },
       {
-        "name": "assists",
+        "name": "assists: i32",
         "ordinal": 10,
         "type_info": "Integer",
         "origin": {
@@ -125,7 +125,7 @@
         }
       },
       {
-        "name": "gold_per_min",
+        "name": "gold_per_min: i32",
         "ordinal": 11,
         "type_info": "Integer",
         "origin": {
@@ -136,7 +136,7 @@
         }
       },
       {
-        "name": "xp_per_min",
+        "name": "xp_per_min: i32",
         "ordinal": 12,
         "type_info": "Integer",
         "origin": {
@@ -147,7 +147,7 @@
         }
       },
       {
-        "name": "last_hits",
+        "name": "last_hits: i32",
         "ordinal": 13,
         "type_info": "Integer",
         "origin": {
@@ -158,7 +158,7 @@
         }
       },
       {
-        "name": "hero_damage",
+        "name": "hero_damage: i32",
         "ordinal": 14,
         "type_info": "Integer",
         "origin": {
@@ -169,7 +169,7 @@
         }
       },
       {
-        "name": "tower_damage",
+        "name": "tower_damage: i32",
         "ordinal": 15,
         "type_info": "Integer",
         "origin": {
@@ -180,7 +180,7 @@
         }
       },
       {
-        "name": "hero_healing",
+        "name": "hero_healing: i32",
         "ordinal": 16,
         "type_info": "Integer",
         "origin": {
@@ -214,5 +214,5 @@
       false
     ]
   },
-  "hash": "da8eb12cabb577971a1925ce318059acd752096e046c0cdb274df7092a91a396"
+  "hash": "0e9a0b7df01b9ec57ad985f1992da2b2579e3ec7f2c1b44642206531d366f433"
 }

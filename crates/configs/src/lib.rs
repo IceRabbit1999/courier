@@ -263,6 +263,11 @@ pub struct SecretsConfig {
     pub steam_web_api_key: Option<String>,
     pub stratz_api_token: Option<String>,
     pub opendota_api_key: Option<String>,
+    /// Official-bot credential: the subscriber id/secret minted by the hub when
+    /// the user links their Telegram. `None` until linked. The secret authorizes
+    /// pushes to the hub's `/notify` endpoint.
+    pub telegram_subscriber_id: Option<String>,
+    pub telegram_subscriber_secret: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -302,9 +307,14 @@ pub enum UpdateChannel {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct TrackingConfig {
     pub poll_interval_mins: u32,
     pub background_tracking: bool,
+    /// How many recent matches to pull per tracked player each poll, so several
+    /// games finished between polls are all caught. Shared by the app-side and
+    /// hub-side trackers.
+    pub fetch_limit: usize,
 }
 
 impl Default for TrackingConfig {
@@ -312,6 +322,7 @@ impl Default for TrackingConfig {
         Self {
             poll_interval_mins: 5,
             background_tracking: true,
+            fetch_limit: 5,
         }
     }
 }
@@ -334,8 +345,10 @@ impl Default for Dota2Config {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct NotificationsConfig {
     pub desktop: DesktopNotificationConfig,
+    pub telegram: TelegramConfig,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -343,6 +356,42 @@ pub struct DesktopNotificationConfig {
     pub enabled: bool,
     pub sound: bool,
     pub notify_new_match: bool,
+}
+
+/// The official hub's public base URL. Point it at your own `courier-hub`
+/// instance to self-host, or at a local one during development; the app talks
+/// to both exactly the same way.
+fn default_hub_base_url() -> String {
+    "https://bot.courier.app".to_owned()
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct TelegramConfig {
+    pub enabled: bool,
+    pub hub_base_url: String,
+    /// Early-access invite code for the official hub, handed out to trusted
+    /// users while it's invite-only. Sent on `/link/new`; empty/`None` for an
+    /// open self-hosted hub.
+    pub access_code: Option<String>,
+    pub notify_new_match: bool,
+    /// When on, the *hub* tracks and pushes matches (from the accounts the
+    /// user synced), so notifications keep flowing while the app is closed —
+    /// and the app-side tracker stays off Telegram to avoid double pushes.
+    /// The hub's copy of this flag is whatever the last `/sync` carried.
+    pub offline_mode: bool,
+}
+
+impl Default for TelegramConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            hub_base_url: default_hub_base_url(),
+            access_code: None,
+            notify_new_match: true,
+            offline_mode: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use serde::Deserialize;
-use shared::{HeroEntry, ItemEntry, MatchDetail, MatchPlayer, MatchSummary};
+use shared::{ChatMessage, HeroEntry, ItemEntry, MatchDetail, MatchPlayer, MatchSummary, PurchaseEvent, Teamfight};
 use snafu::OptionExt;
 
 use crate::{
@@ -235,6 +235,10 @@ struct MatchDetailRaw {
     dire_score: i32,
     first_blood_time: i32,
     players: Vec<MatchPlayerRaw>,
+    #[serde(default)]
+    teamfights: Vec<Teamfight>,
+    #[serde(default)]
+    chat: Vec<ChatMessage>,
 }
 
 impl From<MatchDetailRaw> for MatchDetail {
@@ -250,6 +254,8 @@ impl From<MatchDetailRaw> for MatchDetail {
             dire_score: raw.dire_score,
             first_blood_time: raw.first_blood_time,
             players: raw.players.into_iter().map(Into::into).collect(),
+            teamfights: raw.teamfights,
+            chat: raw.chat,
         }
     }
 }
@@ -288,6 +294,28 @@ struct MatchPlayerRaw {
     aghanims_scepter: i32,
     #[serde(default)]
     aghanims_shard: i32,
+    #[serde(default)]
+    computed_mmr: Option<f64>,
+    #[serde(default)]
+    rank_tier: Option<i32>,
+    #[serde(default)]
+    hero_variant: i32,
+    #[serde(default)]
+    lane_role: Option<i32>,
+    #[serde(default)]
+    teamfight_participation: Option<f64>,
+    #[serde(default)]
+    observers_placed: i32,
+    #[serde(default)]
+    sen_placed: i32,
+    #[serde(default)]
+    camps_stacked: i32,
+    #[serde(default)]
+    creeps_stacked: i32,
+    #[serde(default)]
+    purchase: std::collections::HashMap<String, i32>,
+    #[serde(default)]
+    purchase_log: Vec<PurchaseEvent>,
 }
 
 impl From<MatchPlayerRaw> for MatchPlayer {
@@ -315,6 +343,17 @@ impl From<MatchPlayerRaw> for MatchPlayer {
             item_neutral2: raw.item_neutral2,
             aghanims_scepter: raw.aghanims_scepter > 0,
             aghanims_shard: raw.aghanims_shard > 0,
+            computed_mmr: raw.computed_mmr,
+            rank_tier: raw.rank_tier,
+            hero_variant: raw.hero_variant,
+            lane_role: raw.lane_role,
+            teamfight_participation: raw.teamfight_participation,
+            observers_placed: raw.observers_placed,
+            sentries_placed: raw.sen_placed,
+            camps_stacked: raw.camps_stacked,
+            creeps_stacked: raw.creeps_stacked,
+            purchase: raw.purchase,
+            purchase_log: raw.purchase_log,
         }
     }
 }

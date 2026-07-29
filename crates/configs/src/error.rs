@@ -7,33 +7,33 @@ pub enum Error {
     #[snafu(context(name(ConfigInitSnafu)))]
     ConfigInit {
         source: config::ConfigError,
-        #[snafu(implicit)]
+        #[snafu(implicit, provide)]
         location: Location,
     },
     #[snafu(display("Failed to save configuration"))]
     #[snafu(context(name(ConfigSaveSnafu)))]
     ConfigSave {
         source: std::io::Error,
-        #[snafu(implicit)]
+        #[snafu(implicit, provide)]
         location: Location,
     },
     #[snafu(display("TOML serialization error"))]
     #[snafu(context(name(TomlSerializeSnafu)))]
     TomlSerialize {
         source: toml::ser::Error,
-        #[snafu(implicit)]
+        #[snafu(implicit, provide)]
         location: Location,
     },
     #[snafu(display("Failed to migrate app data"))]
     #[snafu(context(name(MigrationSnafu)))]
     Migration {
         source: std::io::Error,
-        #[snafu(implicit)]
+        #[snafu(implicit, provide)]
         location: Location,
     },
     #[snafu(display("App path not initialized"))]
     AppPath {
-        #[snafu(implicit)]
+        #[snafu(implicit, provide)]
         location: Location,
     },
 }
